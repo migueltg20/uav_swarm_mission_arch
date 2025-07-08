@@ -23,7 +23,7 @@ find_package(tf2_geometry_msgs REQUIRED)
 # )
 
 # ensure headers in include/ are visible
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+# include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # Link ROS libraries using ament_target_dependencies (this auto-configures include dirs and flags)
 # ament_target_dependencies(motion_controller
@@ -46,19 +46,19 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 #   DESTINATION lib/${PROJECT_NAME})
 
 # Install configuration files
-install(DIRECTORY config/
-  DESTINATION share/${PROJECT_NAME}/config
-)
+# install(DIRECTORY config/
+#   DESTINATION share/${PROJECT_NAME}/config
+# )
 
-install(DIRECTORY
-  launch
-  DESTINATION share/${PROJECT_NAME}
-)
+# install(DIRECTORY
+#   launch
+#   DESTINATION share/${PROJECT_NAME}
+# )
 
-install(DIRECTORY
-  rviz
-  DESTINATION share/${PROJECT_NAME}
-)
+# install(DIRECTORY
+#   rviz
+#   DESTINATION share/${PROJECT_NAME}
+# )
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

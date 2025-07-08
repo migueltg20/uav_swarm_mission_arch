@@ -74,4 +74,4 @@ motion_controller:
       alpha: 0.9
       kp: 1.0
       kd: 0.2
-      ki: 0.1
+      ki: 0.5
