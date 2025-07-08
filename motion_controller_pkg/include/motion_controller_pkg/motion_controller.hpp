@@ -68,7 +68,7 @@ private:
     as2_msgs::msg::Thrust unused_thrust_;
 
     const double distance_threshold_ = 0.2;
-    const double circular_threshold_ = 0.2;
+    const double circular_threshold_ = 0.15;
     const int num_points_ = 20;
     const int radius_ = 3;
 };
