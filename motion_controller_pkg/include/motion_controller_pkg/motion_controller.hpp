@@ -24,8 +24,6 @@
 // Base del plugin del controlador (instalado de forma binaria)
 #include "as2_motion_controller/controller_base.hpp"
 
-using namespace std::chrono_literals; // Optional, see previous answer
-
 class PidControllerNode : public as2::Node
 {
 public:
