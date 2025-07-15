@@ -9,6 +9,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(as2_motion_controller REQUIRED)
 find_package(as2_msgs REQUIRED)
 find_package(as2_core REQUIRED)
@@ -16,19 +17,17 @@ find_package(pluginlib REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 
 # add nodes
 add_executable(motion_controller
   src/motion_controller.cpp
 )
 
-# ensure headers in include/ are visible
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-
 # Link ROS libraries using ament_target_dependencies (this auto-configures include dirs and flags)
 ament_target_dependencies(motion_controller
   rclcpp
-  rclcpp_lifecycle
   as2_motion_controller
   as2_msgs
   as2_core
@@ -40,6 +39,28 @@ ament_target_dependencies(motion_controller
 target_link_libraries(motion_controller
   tf2_ros::tf2_ros
   tf2_geometry_msgs::tf2_geometry_msgs
+)
+
+# add_executable(motion_controller_client
+#   src/motion_controller_client.cpp
+# )
+
+# ament_target_dependencies(motion_controller_client
+#   rclcpp
+#   rclcpp_action
+#   as2_msgs
+#   as2_core
+#   geometry_msgs
+#   pluginlib
+# )
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "action/GoalPoint.action"
+)
+
+include_directories(
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${Eigen3_INCLUDE_DIRS}
 )
 
 install(TARGETS motion_controller
