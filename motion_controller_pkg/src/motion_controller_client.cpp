@@ -2,30 +2,67 @@
 
 using namespace std::chrono_literals;
 
+
+
+/*!*******************************************************************************************
+ *  \file       motion_controller_client.cpp
+ *  \brief      Controller client class implementation
+ *  \authors    Miguel Tejado García
+ ********************************************************************************************/
+
+
+
+// --------------------------------------------------------------------------------------------
 MotionClientNode::MotionClientNode() : Node("motion_client")
 {
-  // create the client; use the correct action type here
+  /* Creating action client */
   nav_client_ = rclcpp_action::create_client<motion_controller_pkg::action::GoalPoint>(
     this, "PrimalBehaviour");  // <-- action name
 
-  // Optionally wait for the server to be available
   if (!nav_client_->wait_for_action_server(std::chrono::seconds(5))) 
   {
     RCLCPP_ERROR(get_logger(), "NavigateToPoint action server not available.");
   }
+  else 
+  {
+    RCLCPP_INFO(get_logger(), "NavigateToPoint action server is available.");
+  }
 
-  goal_subscriber_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+
+  /* Suscription to the goal command topic */
+  goal_subscriber_ = this->create_subscription<motion_controller_pkg::msg::GoalCommand>(
     "/goal", rclcpp::QoS(10),
     std::bind(&MotionClientNode::sendGoal, this, std::placeholders::_1));
 }
+// --------------------------------------------------------------------------------------------
 
 
+
+// --------------------------------------------------------------------------------------------
 MotionClientNode::~MotionClientNode()
 {
   RCLCPP_INFO(this->get_logger(), "Destruyendo el nodo cliente...");
 }
+// --------------------------------------------------------------------------------------------
 
 
+
+// --------------------------------------------------------------------------------------------
+void MotionClientNode::goalResponseCallback(
+  std::shared_ptr<rclcpp_action::ClientGoalHandle<motion_controller_pkg::action::GoalPoint>> goal_handle)
+{
+  if (!goal_handle) 
+  {
+    RCLCPP_ERROR(this->get_logger(), "Goal was rejected by the server.");
+    return;
+  }
+  RCLCPP_INFO(this->get_logger(), "Goal accepted by the server, waiting for result...");
+}
+// --------------------------------------------------------------------------------------------
+
+
+
+// --------------------------------------------------------------------------------------------
 void MotionClientNode::feedbackCallback(
   std::shared_ptr<rclcpp_action::ClientGoalHandle<motion_controller_pkg::action::GoalPoint>> /*goal_handle*/,
   const std::shared_ptr<const motion_controller_pkg::action::GoalPoint::Feedback> & feedback)
@@ -38,8 +75,11 @@ void MotionClientNode::feedbackCallback(
   RCLCPP_INFO(this->get_logger(), "Distance remaining: %.2f",
     feedback->distance_remaining);
 }
+// --------------------------------------------------------------------------------------------
 
 
+
+// --------------------------------------------------------------------------------------------
 void MotionClientNode::resultCallback(
   const rclcpp_action::ClientGoalHandle<motion_controller_pkg::action::GoalPoint>::WrappedResult & result)
 {
@@ -67,31 +107,39 @@ void MotionClientNode::resultCallback(
     RCLCPP_WARN(this->get_logger(), "Unknown result code.");
   }
 }
+// --------------------------------------------------------------------------------------------
 
 
-void MotionClientNode::sendGoal(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+
+// --------------------------------------------------------------------------------------------
+void MotionClientNode::sendGoal(const motion_controller_pkg::msg::GoalCommand::SharedPtr msg)
 {
+  /* Creating goal message */
   auto goal_msg = motion_controller_pkg::action::GoalPoint::Goal();
-  goal_msg.drone_id = 0;  
-  goal_msg.point = *msg;
-  goal_msg.navigation_speed = 0.0; // unused at the moment
+  goal_msg.goal_command = *msg;
 
+
+  /* Configuring action client */
   rclcpp_action::Client<motion_controller_pkg::action::GoalPoint>::SendGoalOptions options;
+  options.goal_response_callback = std::bind(&MotionClientNode::goalResponseCallback, this, std::placeholders::_1);
   options.feedback_callback = std::bind(&MotionClientNode::feedbackCallback, this, std::placeholders::_1, std::placeholders::_2);
   options.result_callback   = std::bind(&MotionClientNode::resultCallback, this, std::placeholders::_1);
 
-  nav_client_->async_send_goal(goal_msg, options);
+
+  /* Sending goal */
+  auto goal_handle_future = nav_client_->async_send_goal(goal_msg, options);
 }
+// --------------------------------------------------------------------------------------------
 
 
+
+// --------------------------------------------------------------------------------------------
 int main(int argc, char **argv)
-{
-  // Disable Fast RTPS shared memory transport
-//   ::setenv("RMW_FASTRTPS_SHARED_MEMORY_ENABLED", "0", 1);
-  
+{  
   rclcpp::init(argc, argv);
   auto node = std::make_shared<MotionClientNode>();
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;
 }
+// --------------------------------------------------------------------------------------------

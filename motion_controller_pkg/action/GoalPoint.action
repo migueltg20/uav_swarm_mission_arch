@@ -1,9 +1,7 @@
 # Goal Point
 
 # Request
-int8 drone_id                                           # Unique identifier for the drone to move
-geometry_msgs/PoseStamped point                         # Goal pose 3D (m)
-float32 navigation_speed                                # Maximum speed desired in path (m/s)
+motion_controller_pkg/GoalCommand goal_command          # Goal command message
 ---
 # Result
 bool success                                            # Point reached?
