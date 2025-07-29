@@ -106,7 +106,7 @@ void MotionClientNode::resultCallback(
 void MotionClientNode::sendGoal(const motion_controller_pkg::msg::GoalCommand::SharedPtr msg)
 {
   /* Get the drone ID and action name */
-  if (msg->drone_id < 0 || msg->drone_id > 3) 
+  if (msg->drone_id > 3) 
   {
     RCLCPP_ERROR(get_logger(), "Invalid drone ID: %d. It must be between 0 and 3 (inclusive).", msg->drone_id);
     return;
@@ -121,7 +121,8 @@ void MotionClientNode::sendGoal(const motion_controller_pkg::msg::GoalCommand::S
 
 
   /* Lazily create the client */
-  if (nav_clients_.count(id) == 0) {
+  if (nav_clients_.count(id) == 0) 
+  {
       auto client = rclcpp_action::create_client<motion_controller_pkg::action::GoalPoint>(this, action_name);
       if (!client->wait_for_action_server(5s)) {
           RCLCPP_ERROR(get_logger(), "server '%s' not available", action_name.c_str());
