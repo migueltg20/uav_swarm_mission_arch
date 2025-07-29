@@ -223,8 +223,7 @@ void PidControllerNode::executeGoal(
   auto result = std::make_shared<motion_controller_pkg::action::GoalPoint::Result>();
 
   /* Create a PoseStamped from the goal point to use with trajCallback */
-  auto point_msg = std::make_shared<geometry_msgs::msg::PoseStamped>();
-  point_msg = goal->goal_command.point;
+  auto point_msg = std::make_shared<geometry_msgs::msg::PoseStamped>(goal->goal_command.point);
 
   /* Call the trajectory callback with the goal point */
   trajCallback(point_msg);

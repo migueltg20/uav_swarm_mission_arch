@@ -15,20 +15,6 @@ using namespace std::chrono_literals;
 // --------------------------------------------------------------------------------------------
 MotionClientNode::MotionClientNode() : Node("motion_client")
 {
-  /* Creating action client */
-  nav_client_ = rclcpp_action::create_client<motion_controller_pkg::action::GoalPoint>(
-    this, "PrimalBehaviour");  // <-- action name
-
-  if (!nav_client_->wait_for_action_server(std::chrono::seconds(5))) 
-  {
-    RCLCPP_ERROR(get_logger(), "NavigateToPoint action server not available.");
-  }
-  else 
-  {
-    RCLCPP_INFO(get_logger(), "NavigateToPoint action server is available.");
-  }
-
-
   /* Suscription to the goal command topic */
   goal_subscriber_ = this->create_subscription<motion_controller_pkg::msg::GoalCommand>(
     "/goal", rclcpp::QoS(10),
@@ -49,6 +35,7 @@ MotionClientNode::~MotionClientNode()
 
 // --------------------------------------------------------------------------------------------
 void MotionClientNode::goalResponseCallback(
+  int id,
   std::shared_ptr<rclcpp_action::ClientGoalHandle<motion_controller_pkg::action::GoalPoint>> goal_handle)
 {
   if (!goal_handle) 
@@ -57,6 +44,7 @@ void MotionClientNode::goalResponseCallback(
     return;
   }
   RCLCPP_INFO(this->get_logger(), "Goal accepted by the server, waiting for result...");
+  active_goals_[id] = goal_handle;
 }
 // --------------------------------------------------------------------------------------------
 
@@ -64,15 +52,16 @@ void MotionClientNode::goalResponseCallback(
 
 // --------------------------------------------------------------------------------------------
 void MotionClientNode::feedbackCallback(
+  int id,
   std::shared_ptr<rclcpp_action::ClientGoalHandle<motion_controller_pkg::action::GoalPoint>> /*goal_handle*/,
   const std::shared_ptr<const motion_controller_pkg::action::GoalPoint::Feedback> & feedback)
 {
-  RCLCPP_INFO(this->get_logger(), "Current position: [%.2f, %.2f, %.2f]",
+  RCLCPP_INFO(this->get_logger(),
+    "[drone %d] Current pos: [%.2f, %.2f, %.2f] m, remaining %.2f m",
+    id,
     feedback->current_pose.pose.position.x,
     feedback->current_pose.pose.position.y,
-    feedback->current_pose.pose.position.z);
-
-  RCLCPP_INFO(this->get_logger(), "Distance remaining: %.2f",
+    feedback->current_pose.pose.position.z,
     feedback->distance_remaining);
 }
 // --------------------------------------------------------------------------------------------
@@ -81,6 +70,7 @@ void MotionClientNode::feedbackCallback(
 
 // --------------------------------------------------------------------------------------------
 void MotionClientNode::resultCallback(
+  int id,
   const rclcpp_action::ClientGoalHandle<motion_controller_pkg::action::GoalPoint>::WrappedResult & result)
 {
   if (result.code == rclcpp_action::ResultCode::SUCCEEDED) 
@@ -106,6 +96,7 @@ void MotionClientNode::resultCallback(
   {
     RCLCPP_WARN(this->get_logger(), "Unknown result code.");
   }
+  active_goals_.erase(id);
 }
 // --------------------------------------------------------------------------------------------
 
@@ -114,20 +105,42 @@ void MotionClientNode::resultCallback(
 // --------------------------------------------------------------------------------------------
 void MotionClientNode::sendGoal(const motion_controller_pkg::msg::GoalCommand::SharedPtr msg)
 {
+  /* Get the drone ID and action name */
+  if (msg->drone_id < 0 || msg->drone_id > 3) 
+  {
+    RCLCPP_ERROR(get_logger(), "Invalid drone ID: %d. It must be between 0 and 3 (inclusive).", msg->drone_id);
+    return;
+  }
+  int id = msg->drone_id;
+  auto action_name = "/drone" + std::to_string(id) + "/PrimalBehaviour";
+
+
   /* Creating goal message */
   auto goal_msg = motion_controller_pkg::action::GoalPoint::Goal();
   goal_msg.goal_command = *msg;
 
 
+  /* Lazily create the client */
+  if (nav_clients_.count(id) == 0) {
+      auto client = rclcpp_action::create_client<motion_controller_pkg::action::GoalPoint>(this, action_name);
+      if (!client->wait_for_action_server(5s)) {
+          RCLCPP_ERROR(get_logger(), "server '%s' not available", action_name.c_str());
+          return;
+      }
+      nav_clients_[id] = client;
+  }
+  auto client = nav_clients_[id];
+
+
   /* Configuring action client */
   rclcpp_action::Client<motion_controller_pkg::action::GoalPoint>::SendGoalOptions options;
-  options.goal_response_callback = std::bind(&MotionClientNode::goalResponseCallback, this, std::placeholders::_1);
-  options.feedback_callback = std::bind(&MotionClientNode::feedbackCallback, this, std::placeholders::_1, std::placeholders::_2);
-  options.result_callback   = std::bind(&MotionClientNode::resultCallback, this, std::placeholders::_1);
+  options.goal_response_callback = std::bind(&MotionClientNode::goalResponseCallback, this, id, std::placeholders::_1);
+  options.feedback_callback = std::bind(&MotionClientNode::feedbackCallback, this, id, std::placeholders::_1, std::placeholders::_2);
+  options.result_callback   = std::bind(&MotionClientNode::resultCallback, this, id, std::placeholders::_1);
 
 
   /* Sending goal */
-  auto goal_handle_future = nav_client_->async_send_goal(goal_msg, options);
+  auto goal_handle_future = client->async_send_goal(goal_msg, options);
 }
 // --------------------------------------------------------------------------------------------
 
