@@ -16,7 +16,7 @@ using namespace std::chrono_literals;
 MotionClientNode::MotionClientNode() : Node("motion_client")
 {
   /* Suscription to the goal command topic */
-  goal_subscriber_ = this->create_subscription<motion_controller_pkg::msg::GoalCommand>(
+  goal_subscriber_ = this->create_subscription<GoalCommand>(
     "/goal", rclcpp::QoS(10),
     std::bind(&MotionClientNode::sendGoal, this, std::placeholders::_1));
 }
@@ -36,7 +36,7 @@ MotionClientNode::~MotionClientNode()
 // --------------------------------------------------------------------------------------------
 void MotionClientNode::goalResponseCallback(
   int id,
-  std::shared_ptr<rclcpp_action::ClientGoalHandle<motion_controller_pkg::action::GoalPoint>> goal_handle)
+  std::shared_ptr<rclcpp_action::ClientGoalHandle<GoalPoint>> goal_handle)
 {
   if (!goal_handle) 
   {
@@ -53,8 +53,8 @@ void MotionClientNode::goalResponseCallback(
 // --------------------------------------------------------------------------------------------
 void MotionClientNode::feedbackCallback(
   int id,
-  std::shared_ptr<rclcpp_action::ClientGoalHandle<motion_controller_pkg::action::GoalPoint>> /*goal_handle*/,
-  const std::shared_ptr<const motion_controller_pkg::action::GoalPoint::Feedback> & feedback)
+  std::shared_ptr<rclcpp_action::ClientGoalHandle<GoalPoint>> /*goal_handle*/,
+  const std::shared_ptr<const GoalPoint::Feedback> & feedback)
 {
   RCLCPP_INFO(this->get_logger(),
     "[drone %d] Current pos: [%.2f, %.2f, %.2f] m, remaining %.2f m",
@@ -71,7 +71,7 @@ void MotionClientNode::feedbackCallback(
 // --------------------------------------------------------------------------------------------
 void MotionClientNode::resultCallback(
   int id,
-  const rclcpp_action::ClientGoalHandle<motion_controller_pkg::action::GoalPoint>::WrappedResult & result)
+  const rclcpp_action::ClientGoalHandle<GoalPoint>::WrappedResult & result)
 {
   if (result.code == rclcpp_action::ResultCode::SUCCEEDED) 
   {
@@ -103,7 +103,7 @@ void MotionClientNode::resultCallback(
 
 
 // --------------------------------------------------------------------------------------------
-void MotionClientNode::sendGoal(const motion_controller_pkg::msg::GoalCommand::SharedPtr msg)
+void MotionClientNode::sendGoal(const GoalCommand::SharedPtr msg)
 {
   /* Get the drone ID and action name */
   if (msg->drone_id > 3) 
@@ -116,14 +116,14 @@ void MotionClientNode::sendGoal(const motion_controller_pkg::msg::GoalCommand::S
 
 
   /* Creating goal message */
-  auto goal_msg = motion_controller_pkg::action::GoalPoint::Goal();
+  auto goal_msg = GoalPoint::Goal();
   goal_msg.goal_command = *msg;
 
 
   /* Lazily create the client */
   if (nav_clients_.count(id) == 0) 
   {
-      auto client = rclcpp_action::create_client<motion_controller_pkg::action::GoalPoint>(this, action_name);
+      auto client = rclcpp_action::create_client<GoalPoint>(this, action_name);
       if (!client->wait_for_action_server(5s)) {
           RCLCPP_ERROR(get_logger(), "server '%s' not available", action_name.c_str());
           return;
@@ -134,7 +134,7 @@ void MotionClientNode::sendGoal(const motion_controller_pkg::msg::GoalCommand::S
 
 
   /* Configuring action client */
-  rclcpp_action::Client<motion_controller_pkg::action::GoalPoint>::SendGoalOptions options;
+  rclcpp_action::Client<GoalPoint>::SendGoalOptions options;
   options.goal_response_callback = std::bind(&MotionClientNode::goalResponseCallback, this, id, std::placeholders::_1);
   options.feedback_callback = std::bind(&MotionClientNode::feedbackCallback, this, id, std::placeholders::_1, std::placeholders::_2);
   options.result_callback   = std::bind(&MotionClientNode::resultCallback, this, id, std::placeholders::_1);
