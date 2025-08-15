@@ -12,7 +12,7 @@
 #include <thread>
 #include <Eigen/Dense>
 #include <cmath>                                        // for std::atan2
-#include <map>
+#include <mutex>
 
 // ROS2 libraries
 #include "rclcpp/rclcpp.hpp"
@@ -54,15 +54,17 @@ public:
 
 private:
     // Callbacks for the subscribers and timer
-    void poseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
-    void twistCallback(const geometry_msgs::msg::TwistStamped::SharedPtr msg);
-    void timerCallback();
+    void poseCallback(int drone_id, const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+    void twistCallback(int drone_id, const geometry_msgs::msg::TwistStamped::SharedPtr msg);
+    void timerCallback(int drone_id);
 
 
     // Action server callbacks
     rclcpp_action::GoalResponse handleGoal(
       const rclcpp_action::GoalUUID & uuid,
       std::shared_ptr<const GoalPoint::Goal> goal);
+
+    void cleanupGoal(int drone_id, bool cleanup_controller);
 
     rclcpp_action::CancelResponse handleCancel(
       const std::shared_ptr<rclcpp_action::ServerGoalHandle<GoalPoint>> goal_handle);
@@ -73,40 +75,44 @@ private:
     void executeGoal(
       const std::shared_ptr<rclcpp_action::ServerGoalHandle<GoalPoint>> goal_handle);
 
-    void trajCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+    void trajCallback(const GoalCommand & msg);
+
+
+    // Per-UAV mutexes (in the rare case that the callbacks get uncoordinated when checking the status of the UAVs)
+    std::array<std::mutex, 4> drone_mutexes_;
 
 
     // Member variables
-    std::map<int, rclcpp_action::Server<GoalPoint>::SharedPtr> nav_servers_;
-    std::map<int, rclcpp_action::ClientGoalHandle<GoalPoint>::SharedPtr> active_goals_;
+    std::array<rclcpp_action::Server<GoalPoint>::SharedPtr, 4> nav_servers_;
+    std::array<std::shared_ptr<rclcpp_action::ServerGoalHandle<GoalPoint>>, 4> active_goals_;
 
     std::unique_ptr<pluginlib::ClassLoader<as2_motion_controller_plugin_base::ControllerBase>> plugin_loader_;
-    std::map<int, as2_motion_controller_plugin_base::ControllerBase::SharedPtr> controllers_; 
+    std::array<std::shared_ptr<as2_motion_controller_plugin_base::ControllerBase>, 4> controllers_;
 
-    auto qos_ = rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_sensor_data))
+    rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_sensor_data))
               .reliability(rclcpp::ReliabilityPolicy::BestEffort)
               .durability(rclcpp::DurabilityPolicy::Volatile);                                  // QoS for AS2 subscribers and publishers
 
-    std::map<int, rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr> pose_subscribers_;
-    std::map<int, rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr> twist_subscribers_;
-    std::map<int, rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr> traj_subscribers_;
-    std::map<int, rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr> twist_publishers_;
+    std::array<rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr, 4> pose_subscribers_;
+    std::array<rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr, 4> twist_subscribers_;
+    std::array<rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr, 4> traj_subscribers_;
+    std::array<rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr, 4> twist_publishers_;
 
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
     tf2_ros::Buffer tf_buffer_;   // no need of mapping since tf2_ros::Buffer is thread-safe
 
-    std::map<int, rclcpp::TimerBase::SharedPtr> timers_;
+    std::array<rclcpp::TimerBase::SharedPtr, 4> timers_;
 
-    std::map<int, std::vector<rclcpp::Parameter>> params_;
+    std::array<std::vector<rclcpp::Parameter>, 4> params_;
 
-    std::map<int, as2_msgs::msg::ControlMode> input_mode_;
+    std::array<as2_msgs::msg::ControlMode, 4> input_mode_;
     as2_msgs::msg::ControlMode output_mode_;                  // Keep as unique for ease of use (see its description in .cpp file)
 
-    std::map<int, geometry_msgs::msg::PoseStamped> current_pose_;
-    std::map<int, geometry_msgs::msg::TwistStamped> current_twist_;
-    std::map<int, as2_msgs::msg::TrajectorySetpoints> desired_traj_;
-    std::map<int, bool> traj_goal_defined_;
-    std::map<int, as2_msgs::msg::TrajectorySetpoints> circular_traj_;
+    std::array<geometry_msgs::msg::PoseStamped, 4> current_pose_;
+    std::array<geometry_msgs::msg::TwistStamped, 4> current_twist_;
+    std::array<as2_msgs::msg::TrajectorySetpoints, 4> desired_traj_;
+    std::array<bool, 4> traj_goal_defined_;
+    std::array<as2_msgs::msg::TrajectorySetpoints, 4> circular_traj_;
 
     // "static constexpr" allows compile-time evaluation and optimization (one-shared copy)
     static constexpr double distance_threshold_ = 0.2;   

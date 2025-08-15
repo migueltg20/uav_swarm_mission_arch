@@ -71,18 +71,22 @@ PidControllerNode::PidControllerNode() : Node("motion_controller"), tf_buffer_(t
     /* Subscribers, publishers and timer */
     pose_subscribers_[i] = this->create_subscription<geometry_msgs::msg::PoseStamped>(
       "/drone" + std::to_string(i) + "/self_localization/pose", qos_,
-      std::bind(&PidControllerNode::poseCallback, this, i, std::placeholders::_1));
+      [this, i](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
+        this->poseCallback(i, msg);
+      });
 
     twist_subscribers_[i] = this->create_subscription<geometry_msgs::msg::TwistStamped>(
       "/drone" + std::to_string(i) + "/self_localization/twist", qos_,
-      std::bind(&PidControllerNode::twistCallback, this, i, std::placeholders::_1));
+      [this, i](const geometry_msgs::msg::TwistStamped::SharedPtr msg) {
+        this->twistCallback(i, msg);
+      });
 
     twist_publishers_[i] = this->create_publisher<geometry_msgs::msg::TwistStamped>(
       "/drone" + std::to_string(i) + "/actuator_command/twist", qos_);
 
     traj_goal_defined_[i] = false;
 
-    timers_[i] = this->create_wall_timer(100ms, std::bind(&PidControllerNode::timerCallback, this, i));
+    timers_[i] = this->create_wall_timer(100ms, [this, i]() { this->timerCallback(i); });
   }
 }
 // --------------------------------------------------------------------------------------------
@@ -103,9 +107,15 @@ void PidControllerNode::initTfListener()
 /* Node destruction */
 PidControllerNode::~PidControllerNode()
 {
-  RCLCPP_INFO(this->get_logger(), "Destruyendo el nodo y liberando el plugin...");
-  controller_plugin_.reset();                                   // First destroy the plugin instance
-  plugin_loader_.reset();                                       // Then destroy the loader to allow the library to unload
+  RCLCPP_INFO(this->get_logger(), "Destruyendo el nodo y liberando plugins...");
+  for (int i = 0; i < 4; ++i) 
+  {
+    if (controllers_[i]) 
+    {
+      controllers_[i].reset();  // Reset each individual shared_ptr
+    }
+  }
+  plugin_loader_.reset();    // Then unload the class‐loader so libraries can unload
 }
 // --------------------------------------------------------------------------------------------
 
@@ -130,11 +140,51 @@ rclcpp_action::GoalResponse PidControllerNode::handleGoal(
 
 
 // --------------------------------------------------------------------------------------------
+void PidControllerNode::cleanupGoal(int drone_id, bool cleanup_controller)
+{
+  /* Reset trajectory state */
+  traj_goal_defined_[drone_id] = false;
+  desired_traj_[drone_id].setpoints.clear();
+  circular_traj_[drone_id].setpoints.clear();
+  
+  /* Remove from active goals */
+  active_goals_[drone_id] = nullptr;
+  
+  /* Optional: Clean up controller instance */
+  if (cleanup_controller) 
+  {
+    controllers_[drone_id] = nullptr;
+    params_[drone_id].clear();
+    input_mode_[drone_id] = as2_msgs::msg::ControlMode();
+    RCLCPP_INFO(this->get_logger(), "Controller instance for drone %d cleaned up", drone_id);
+  }
+  
+  RCLCPP_INFO(this->get_logger(), "Goal resources for drone %d cleaned up", drone_id);
+}
+// --------------------------------------------------------------------------------------------
+
+
+
+// --------------------------------------------------------------------------------------------
 /* Goal cancellation */
 rclcpp_action::CancelResponse PidControllerNode::handleCancel(
   const std::shared_ptr<rclcpp_action::ServerGoalHandle<GoalPoint>> goal_handle)
 {
   RCLCPP_INFO(this->get_logger(), "Received request to cancel goal");
+
+  /* Find and clean up the cancelled goal */
+  for (int i = 0; i < 4; ++i) 
+  {
+    std::lock_guard<std::mutex> lock(drone_mutexes_[i]);
+
+    if (active_goals_[i] == goal_handle) 
+    {
+        RCLCPP_INFO(this->get_logger(), "Cleaning up cancelled goal for drone %d", i);
+        cleanupGoal(i, false);
+        break;
+    }
+  }
+
   return rclcpp_action::CancelResponse::ACCEPT;
 }
 // --------------------------------------------------------------------------------------------
@@ -161,26 +211,30 @@ void PidControllerNode::executeGoal(
   /* Get the goal from the goal handle */
   const auto goal = goal_handle->get_goal();
   const auto drone_id = goal->goal_command.drone_id;
+
+  std::lock_guard<std::mutex> lock(drone_mutexes_[drone_id]);
+
   active_goals_[drone_id] = goal_handle;
 
 
-  /* Create a new controller instance */
-  RCLCPP_INFO(this->get_logger(), "Creando instancia del plugin para el UAV %d...", drone_id);
-  controllers_[drone_id] = plugin_loader_->createSharedInstance("pid_speed_controller::Plugin");
-
+  /* Create a new controller instance if it doesn't exist */
   if (!controllers_[drone_id]) 
   {
-    RCLCPP_ERROR(this->get_logger(), "Error: No se pudo crear la instancia del plugin para el UAV %d.", drone_id);
-    rclcpp::shutdown();
-    return;
+    controllers_[drone_id] = plugin_loader_->createSharedInstance("pid_speed_controller::Plugin");
+
+    if (!controllers_[drone_id]) 
+    {
+      RCLCPP_ERROR(this->get_logger(), "Error: No se pudo crear la instancia del plugin para el UAV %d.", drone_id);
+      rclcpp::shutdown();
+      return;
+    }
+    RCLCPP_INFO(this->get_logger(), "Instancia del plugin del drone %d creada correctamente.", drone_id);
+
+    /* Initializing plugin */
+    RCLCPP_INFO(this->get_logger(), "Llamando al método initialize() del plugin %d...", drone_id);
+    controllers_[drone_id]->initialize(this);
+    RCLCPP_INFO(this->get_logger(), "Método initialize() del plugin %d llamado correctamente.", drone_id);
   }
-  RCLCPP_INFO(this->get_logger(), "Instancia del plugin del drone %d creada correctamente.", drone_id);
-
-
-  /* Initializing plugin */
-  RCLCPP_INFO(this->get_logger(), "Llamando al método initialize() del plugin %d...", drone_id);
-  controllers_[drone_id]->initialize(this);
-  RCLCPP_INFO(this->get_logger(), "Método initialize() del plugin %d llamado correctamente.", drone_id);
 
 
   /* Loading parameters */
@@ -230,17 +284,29 @@ void PidControllerNode::executeGoal(
 
 // --------------------------------------------------------------------------------------------
 /* Pose callback (it tracks the current pose to update trajectory) */
-void PidControllerNode::poseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg, int drone_id)
+void PidControllerNode::poseCallback(int drone_id, const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
-  auto result = std::make_shared<GoalPoint::Result>();
-
+  std::lock_guard<std::mutex> lock(drone_mutexes_[drone_id]);
 
   /* Update the current pose */
   current_pose_[drone_id] = *msg;
 
+  /* Check if the goal is active */
+  if (active_goals_[drone_id] == nullptr) 
+  {
+    return;  // No active goal
+  }
+
+  if (!active_goals_[drone_id] || !active_goals_[drone_id]->is_active()) 
+  {
+    return; // Goal handle is invalid or not active
+  }
+  auto result = std::make_shared<GoalPoint::Result>();
+
 
   /* Check if trajectories are already defined */
-  if (!traj_goal_defined_[drone_id] && circular_traj_[drone_id].setpoints.empty()) {
+  if (!traj_goal_defined_[drone_id] && circular_traj_[drone_id].setpoints.empty()) 
+  {
     return;
   }
   
@@ -269,6 +335,9 @@ void PidControllerNode::poseCallback(const geometry_msgs::msg::PoseStamped::Shar
         active_goals_[drone_id]->succeed(result);
 
         RCLCPP_INFO(this->get_logger(), "Goal for UAV %d completed successfully", drone_id);
+
+        /* Clean up completed goal */
+        active_goals_[drone_id] = nullptr;
       }
     }
   }
@@ -292,11 +361,33 @@ void PidControllerNode::poseCallback(const geometry_msgs::msg::PoseStamped::Shar
 
 
 
+// TODO: Change feedback and where it is sent if needed
 // --------------------------------------------------------------------------------------------
-/* Twist callback (it tracks the current twist) */
-void PidControllerNode::twistCallback(const geometry_msgs::msg::TwistStamped::SharedPtr msg, int drone_id)
+/* Twist callback (it tracks the current twist and send feedback) */
+void PidControllerNode::twistCallback(int drone_id, const geometry_msgs::msg::TwistStamped::SharedPtr msg)
 {
+  std::lock_guard<std::mutex> lock(drone_mutexes_[drone_id]);
+
+  /* Check if there's an active goal for this drone */
+  if (active_goals_[drone_id] == nullptr) 
+  {
+    return; // No active goal
+  }
+
+  if (!active_goals_[drone_id] || !active_goals_[drone_id]->is_active()) 
+  {
+    return; // Goal handle is invalid or not active
+  }
+
+
   current_twist_[drone_id] = *msg;
+
+
+  /* Send feedback */
+  auto feedback = std::make_shared<GoalPoint::Feedback>();
+  feedback->current_pose  = current_pose_[drone_id];
+  feedback->current_speed = current_twist_[drone_id];
+  active_goals_[drone_id]->publish_feedback(feedback);
 }
 // --------------------------------------------------------------------------------------------
 
@@ -304,21 +395,32 @@ void PidControllerNode::twistCallback(const geometry_msgs::msg::TwistStamped::Sh
 
 // --------------------------------------------------------------------------------------------
 /* Goal execution part 2 (the important one) */
-void PidControllerNode::trajCallback(const GoalCommand::SharedPtr msg)
+void PidControllerNode::trajCallback(const GoalCommand & msg)
 {
   auto result = std::make_shared<GoalPoint::Result>();
-
-  GoalCommand goal = *msg;
+  const auto goal = msg;
   uint8_t drone_id = goal.drone_id;
+
+  /* Check if goal is still active before proceeding */
+  if (active_goals_[drone_id] == nullptr || !active_goals_[drone_id]->is_active()) 
+  {
+    RCLCPP_WARN(this->get_logger(), "Goal for drone %d is no longer active", drone_id);
+    return;
+  }
 
 
   /* Transform the goal pose to the UAV's reference frame using the tf_listener_ */
   geometry_msgs::msg::TransformStamped transform;
   try
   {
-    transform = tf_buffer_.lookupTransform(current_pose_[drone_id].header.frame_id, goal.point.header.frame_id,
-                                            rclcpp::Time(0), rclcpp::Duration(2s));
-    tf2::doTransform(goal, goal, transform);
+    transform = tf_buffer_.lookupTransform(
+      current_pose_[drone_id].header.frame_id,
+      msg.point.header.frame_id,
+      rclcpp::Time(0), rclcpp::Duration(2s)
+    );
+    
+    geometry_msgs::msg::PoseStamped goal_in_local = msg.point;
+    tf2::doTransform(msg.point, goal_in_local, transform);
   }
   catch (const tf2::TransformException &ex)
   {
@@ -330,7 +432,7 @@ void PidControllerNode::trajCallback(const GoalCommand::SharedPtr msg)
   switch (goal.circular)
   {
   case 0:   // If the goal includes a circular trajectory
-    if (goal.trajectory.setpoints.empty())    // If linear trajectory from initial point to goal
+    if (goal.trajectory.setpoints.empty() && !goal.point.header.frame_id.empty())    // If linear trajectory from initial point to goal
     {
       /* Start point (keep or adjust height if necessary) */
       geometry_msgs::msg::PoseStamped start = current_pose_[drone_id];
@@ -391,6 +493,19 @@ void PidControllerNode::trajCallback(const GoalCommand::SharedPtr msg)
       desired_traj_[drone_id] = goal.trajectory;
       traj_goal_defined_[drone_id] = true;
     }
+    else if (goal.point.header.frame_id.empty())    // If the goal is not defined
+    {
+      RCLCPP_ERROR(this->get_logger(), "Error: El objetivo no está definido para el UAV %d.", drone_id);
+
+      /* Set the result and mark the goal as succeeded */
+      result->success = false;
+      active_goals_[drone_id]->abort(result);
+
+      /* Clean up resources */
+      cleanupGoal(drone_id, false);
+
+      return;
+    }
 
     break;
 
@@ -403,9 +518,14 @@ void PidControllerNode::trajCallback(const GoalCommand::SharedPtr msg)
       result->success = false;
       active_goals_[drone_id]->abort(result);
 
+      /* Clean up resources */
+      cleanupGoal(drone_id, false);
+
       return;
     }
 
+
+    /* Calculate the number of points for the circular trajectory */
     int circular_points = static_cast<int>(std::round(4 * M_PI * goal.radius));
 
     if (goal.trajectory.setpoints.empty() && !goal.point.header.frame_id.empty())    // If linear trajectory from initial point to goal + circular trajectory around goal
@@ -509,14 +629,15 @@ void PidControllerNode::trajCallback(const GoalCommand::SharedPtr msg)
       desired_traj_[drone_id] = goal.trajectory;
       traj_goal_defined_[drone_id] = true;
 
+      
       /* Circular trajectory */
       circular_traj_[drone_id].setpoints.resize(circular_points);
       for (int i = 0; i < circular_points; ++i)
       {
         double theta = 2.0 * M_PI * static_cast<double>(i) / circular_points;
-        circular_traj_[drone_id].setpoints[i].position.x    = goal.trajectory.setpoints.back().pose.position.x + goal.radius * std::cos(theta);
-        circular_traj_[drone_id].setpoints[i].position.y    = goal.trajectory.setpoints.back().pose.position.y + goal.radius * std::sin(theta);
-        circular_traj_[drone_id].setpoints[i].position.z    = goal.trajectory.setpoints.back().pose.position.z;
+        circular_traj_[drone_id].setpoints[i].position.x    = goal.trajectory.setpoints.back().position.x + goal.radius * std::cos(theta);
+        circular_traj_[drone_id].setpoints[i].position.y    = goal.trajectory.setpoints.back().position.y + goal.radius * std::sin(theta);
+        circular_traj_[drone_id].setpoints[i].position.z    = goal.trajectory.setpoints.back().position.z;
         double v = 1.0;
         circular_traj_[drone_id].setpoints[i].twist.x       = v * std::cos(theta);
         circular_traj_[drone_id].setpoints[i].twist.y       = v * std::sin(theta);
@@ -539,6 +660,27 @@ void PidControllerNode::trajCallback(const GoalCommand::SharedPtr msg)
 /* Timer callback (for trajectory updates) */
 void PidControllerNode::timerCallback(int drone_id)
 {
+  std::lock_guard<std::mutex> lock(drone_mutexes_[drone_id]);
+
+  /* Check if there's an active goal for this drone */
+  if (active_goals_[drone_id] == nullptr) 
+  {
+    /* Clean up unused controller instances */
+    if (controllers_[drone_id] != nullptr) {
+      RCLCPP_INFO(this->get_logger(), "Cleaning up unused controller for drone %d", drone_id);
+      cleanupGoal(drone_id, true);  // Clean up controller too
+    }
+    return; // No active goal
+  }
+
+  if (!active_goals_[drone_id] || !active_goals_[drone_id]->is_active()) 
+  {
+    /* Goal is no longer active, clean up */
+    RCLCPP_WARN(this->get_logger(), "Detected inactive goal for drone %d, cleaning up", drone_id);
+    cleanupGoal(drone_id, false);
+    return;
+  }
+
   if(!traj_goal_defined_[drone_id] && circular_traj_[drone_id].setpoints.empty())
   {
     RCLCPP_WARN(this->get_logger(), "No se ha definido la trayectoria deseada para el UAV %d.", drone_id);
@@ -546,19 +688,29 @@ void PidControllerNode::timerCallback(int drone_id)
   }
   else
   {
+    if (!controllers_[drone_id]) 
+    {
+      RCLCPP_WARN(this->get_logger(), "No controller for UAV %d", drone_id);
+      return;
+    }
+
     /* Update reference */
-    RCLCPP_INFO(this->get_logger(), "Llamando al método updateReference() del plugin %d...", drone_id);
-    if(traj_goal_defined_[drone_id])
-      controller_plugin_ -> updateReference(desired_traj_[drone_id]);
-    else
-      controller_plugin_ -> updateReference(circular_traj_[drone_id]);
-    RCLCPP_INFO(this->get_logger(), "Método updateReference() del plugin %d llamado correctamente.", drone_id);
+    // RCLCPP_INFO(this->get_logger(), "Llamando al método updateReference() del plugin %d...", drone_id);
+    if (traj_goal_defined_[drone_id]) 
+    {
+      controllers_[drone_id]->updateReference(desired_traj_[drone_id]);
+    } 
+    else 
+    {
+      controllers_[drone_id]->updateReference(circular_traj_[drone_id]);
+    }
+    // RCLCPP_INFO(this->get_logger(), "Método updateReference() del plugin %d llamado correctamente.", drone_id);
 
 
     /* Update state */
-    RCLCPP_INFO(this->get_logger(), "Llamando al método updateState() del plugin %d...", drone_id);
-    controller_plugin_ -> updateState(current_pose_[drone_id], current_twist_[drone_id]);
-    RCLCPP_INFO(this->get_logger(), "Método updateState() del plugin %d llamado correctamente.", drone_id);
+    // RCLCPP_INFO(this->get_logger(), "Llamando al método updateState() del plugin %d...", drone_id);
+    controllers_[drone_id]->updateState(current_pose_[drone_id], current_twist_[drone_id]);
+    // RCLCPP_INFO(this->get_logger(), "Método updateState() del plugin %d llamado correctamente.", drone_id);
 
     geometry_msgs::msg::PoseStamped unused_pose;
     geometry_msgs::msg::TwistStamped command_twist;
@@ -566,10 +718,10 @@ void PidControllerNode::timerCallback(int drone_id)
 
 
     /* Calculate output */
-    RCLCPP_INFO(this->get_logger(), "Llamando al método computeOutput() del plugin %d...", drone_id);
-    if(controller_plugin_ -> computeOutput(0.100, unused_pose, command_twist, unused_thrust))
+    // RCLCPP_INFO(this->get_logger(), "Llamando al método computeOutput() del plugin %d...", drone_id);
+    if(controllers_[drone_id]->computeOutput(0.100, unused_pose, command_twist, unused_thrust))
     {
-      RCLCPP_INFO(this->get_logger(), "Método computeOutput() del plugin %d llamado correctamente.", drone_id);
+      // RCLCPP_INFO(this->get_logger(), "Método computeOutput() del plugin %d llamado correctamente.", drone_id);
     }
     else
     {
@@ -625,7 +777,7 @@ void PidControllerNode::timerCallback(int drone_id)
       command_twist.twist.angular.y = transformed_angular_velocity.y();
       command_twist.twist.angular.z = transformed_angular_velocity.z();
 
-      command_twist.header.frame_id = "drone0/base_link";
+      command_twist.header.frame_id = "drone" + std::to_string(drone_id) + "/base_link";
 
       RCLCPP_INFO(this->get_logger(), "'command_twist' transformada.");
     }

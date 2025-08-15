@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 #include <functional>
-#include <map>
+#include <mutex>
 
 // ROS2 libraries
 #include "rclcpp/rclcpp.hpp"
@@ -38,17 +38,17 @@ public:
   ~MotionClientNode();
 
 private:
-  // Callback for the goal subscriber
+  /* Callback for the goal subscriber */
   void sendGoal(const GoalCommand::SharedPtr msg);
 
 
-  // Callback for the action client goal response
+  /* Callback for the action client goal response */
   void goalResponseCallback(
     int id,
     std::shared_ptr<rclcpp_action::ClientGoalHandle<GoalPoint>> goal_handle);
 
 
-  // Callbacks for the action client feedback and result
+  /* Callbacks for the action client feedback and result */
   void feedbackCallback(
     int id,
     std::shared_ptr<rclcpp_action::ClientGoalHandle<GoalPoint>> goal_handle,
@@ -59,10 +59,15 @@ private:
     const rclcpp_action::ClientGoalHandle<GoalPoint>::WrappedResult & result);
 
 
-  // Member variables
+  void cancelGoal(int id);
+
+  /* Per-drone mutexes */
+  std::array<std::mutex, 4> goal_mutexes_;
+
+  /* Member variables */
   rclcpp::Subscription<GoalCommand>::SharedPtr goal_subscriber_;
-  std::map<int, rclcpp_action::Client<GoalPoint>::SharedPtr> nav_clients_;
-  std::map<int, rclcpp_action::ClientGoalHandle<GoalPoint>::SharedPtr> active_goals_;
+  std::array<rclcpp_action::Client<GoalPoint>::SharedPtr, 4> nav_clients_;
+  std::array<rclcpp_action::ClientGoalHandle<GoalPoint>::SharedPtr, 4> active_goals_;
 };
 
 #endif  // MOTION_CONTROLLER_PKG__MOTION_CONTROLLER_CLIENT_HPP_

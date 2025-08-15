@@ -23,8 +23,14 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(Threads REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
-find_package(motion_controller_pkg REQUIRED)
+find_package(rosidl_default_runtime REQUIRED)
 # ------------------------------------------------------------------------------------
+
+
+
+# ------------------------------------------------------------------------------------
+ament_export_dependencies(rosidl_default_runtime)
+# -------------------------------------------------------------------------------------
 
 
 
@@ -37,6 +43,12 @@ rosidl_generate_interfaces(${PROJECT_NAME}
     geometry_msgs
     as2_msgs
 )
+# ------------------------------------------------------------------------------------
+
+
+
+# ------------------------------------------------------------------------------------
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
 # ------------------------------------------------------------------------------------
 
 
@@ -55,7 +67,8 @@ ament_target_dependencies(motion_controller
   as2_core
   geometry_msgs
   pluginlib
-  motion_controller_pkg
+  # motion_controller_pkg
+  rosidl_default_runtime
 )
 
 # Non-ROS2 libraries/packages
@@ -64,6 +77,7 @@ target_link_libraries(motion_controller
   Eigen3::Eigen
   tf2_ros::tf2_ros
   tf2_geometry_msgs::tf2_geometry_msgs
+  ${cpp_typesupport_target}
 )
 # ------------------------------------------------------------------------------------
 
@@ -80,7 +94,12 @@ ament_target_dependencies(motion_controller_client
   rclcpp
   rclcpp_action
   as2_core
-  motion_controller_pkg  
+  # motion_controller_pkg  
+  rosidl_default_runtime
+)
+
+target_link_libraries(motion_controller_client
+  ${cpp_typesupport_target}  # Add this line
 )
 # ------------------------------------------------------------------------------------
 
