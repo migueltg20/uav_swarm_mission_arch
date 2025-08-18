@@ -112,6 +112,7 @@ private:
     std::array<geometry_msgs::msg::TwistStamped, 4> current_twist_;
     std::array<as2_msgs::msg::TrajectorySetpoints, 4> desired_traj_;
     std::array<bool, 4> traj_goal_defined_;
+    std::array<bool, 4> not_circular_;
     std::array<as2_msgs::msg::TrajectorySetpoints, 4> circular_traj_;
 
     // "static constexpr" allows compile-time evaluation and optimization (one-shared copy)
