@@ -450,12 +450,11 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
   {
     transform = tf_buffer_.lookupTransform(
       current_pose_[drone_id].header.frame_id,
-      msg.point.header.frame_id,
+      goal.point.header.frame_id,
       rclcpp::Time(0), rclcpp::Duration(2s)
     );
-    
-    geometry_msgs::msg::PoseStamped goal_in_local = msg.point;
-    tf2::doTransform(msg.point, goal_in_local, transform);
+
+    tf2::doTransform(goal.point, goal.point, transform);
   }
   catch (const tf2::TransformException &ex)
   {
