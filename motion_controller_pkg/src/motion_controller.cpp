@@ -88,6 +88,7 @@ PidControllerNode::PidControllerNode() : Node("motion_controller"), tf_buffer_(t
 
     timers_[i] = this->create_wall_timer(100ms, [this, i]() { this->timerCallback(i); });
   }
+  RCLCPP_INFO(this->get_logger(), "Subscribers, publishers and timers initialized");
 }
 // --------------------------------------------------------------------------------------------
 
@@ -98,6 +99,7 @@ PidControllerNode::PidControllerNode() : Node("motion_controller"), tf_buffer_(t
 void PidControllerNode::initTfListener() 
 {
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(tf_buffer_, shared_from_this());
+  RCLCPP_INFO(this->get_logger(), "TF listener initialized");
 }
 // --------------------------------------------------------------------------------------------
 
@@ -128,11 +130,16 @@ rclcpp_action::GoalResponse PidControllerNode::handleGoal(
   std::shared_ptr<const GoalPoint::Goal> goal)
 {
   RCLCPP_INFO(this->get_logger(), "Received new goal request");
-  RCLCPP_WARN(this->get_logger(), "Received goal command: \ndrone_id: %d \nposition: [%f, %f, %f]",
+  RCLCPP_WARN(this->get_logger(), "Received goal command: \ndrone_id: %d \nposition: [%f, %f, %f] \ncircular = %d \nradius = %f \nControl mode: [%d, %d, %d]",
     goal->goal_command.drone_id,
     goal->goal_command.point.pose.position.x,
     goal->goal_command.point.pose.position.y,
-    goal->goal_command.point.pose.position.z);
+    goal->goal_command.point.pose.position.z,
+    goal->goal_command.circular,
+    goal->goal_command.radius,
+    goal->goal_command.control_mode.control_mode,
+    goal->goal_command.control_mode.yaw_mode,
+    goal->goal_command.control_mode.reference_frame);
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 // --------------------------------------------------------------------------------------------
@@ -196,6 +203,7 @@ rclcpp_action::CancelResponse PidControllerNode::handleCancel(
 void PidControllerNode::handleAccepted(
   const std::shared_ptr<rclcpp_action::ServerGoalHandle<GoalPoint>> goal_handle)
 {
+  RCLCPP_WARN(this->get_logger(), "Goal accepted, starting execution");
   /* Spinning off the execution in another thread to return quickly */
   std::thread{std::bind(&PidControllerNode::executeGoal, this, goal_handle)}.detach();
 }
@@ -211,6 +219,17 @@ void PidControllerNode::executeGoal(
   /* Get the goal from the goal handle */
   const auto goal = goal_handle->get_goal();
   const auto drone_id = goal->goal_command.drone_id;
+
+  RCLCPP_WARN(this->get_logger(), "Received goal command: \ndrone_id: %d \nposition: [%f, %f, %f] \ncircular = %d \nradius = %f \nControl mode: [%d, %d, %d]",
+    goal->goal_command.drone_id,
+    goal->goal_command.point.pose.position.x,
+    goal->goal_command.point.pose.position.y,
+    goal->goal_command.point.pose.position.z,
+    goal->goal_command.circular,
+    goal->goal_command.radius,
+    goal->goal_command.control_mode.control_mode,
+    goal->goal_command.control_mode.yaw_mode,
+    goal->goal_command.control_mode.reference_frame);
 
   std::lock_guard<std::mutex> lock(drone_mutexes_[drone_id]);
 
@@ -250,7 +269,11 @@ void PidControllerNode::executeGoal(
     rclcpp::shutdown();
     return;
   }
-
+  RCLCPP_INFO(this->get_logger(), "Parámetros: ");
+  for (const auto &param : params_[drone_id])
+  {
+    RCLCPP_WARN(this->get_logger(), "  %s: %s", param.first.c_str(), param.second.c_str());
+  }
 
   /* Configuring control modes (for calculations) */
   /* Input: ENU local frame trajectory (the input's config is the most important, as it determines how the plugin
@@ -273,6 +296,7 @@ void PidControllerNode::executeGoal(
     rclcpp::shutdown();
     return;
   }
+  RCLCPP_INFO(this->get_logger(), "Modos de control para el UAV %d establecidos correctamente.", drone_id);
 
 
   /* Call the trajectory callback with the goal */
@@ -400,6 +424,17 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
   auto result = std::make_shared<GoalPoint::Result>();
   const auto goal = msg;
   uint8_t drone_id = goal.drone_id;
+
+  RCLCPP_WARN(this->get_logger(), "Received goal command: \ndrone_id: %d \nposition: [%f, %f, %f] \ncircular = %d \nradius = %f \nControl mode: [%d, %d, %d]",
+    goal.drone_id,
+    goal.point.pose.position.x,
+    goal.point.pose.position.y,
+    goal.point.pose.position.z,
+    goal.circular,
+    goal.radius,
+    goal.control_mode.control_mode,
+    goal.control_mode.yaw_mode,
+    goal.control_mode.reference_frame);
 
   /* Check if goal is still active before proceeding */
   if (active_goals_[drone_id] == nullptr || !active_goals_[drone_id]->is_active()) 
