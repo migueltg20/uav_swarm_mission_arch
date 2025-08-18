@@ -272,7 +272,7 @@ void PidControllerNode::executeGoal(
   RCLCPP_INFO(this->get_logger(), "Parámetros: ");
   for (const auto &param : params_[drone_id])
   {
-    RCLCPP_WARN(this->get_logger(), "  %s: %s", param.first.c_str(), param.second.c_str());
+    RCLCPP_WARN(this->get_logger(), "  %s: %s", param.get_name().c_str(), param.value_to_string().c_str());
   }
 
   /* Configuring control modes (for calculations) */
@@ -729,7 +729,7 @@ void PidControllerNode::timerCallback(int drone_id)
     }
 
     /* Update reference */
-    // RCLCPP_INFO(this->get_logger(), "Llamando al método updateReference() del plugin %d...", drone_id);
+    RCLCPP_INFO(this->get_logger(), "Llamando al método updateReference() del plugin %d...", drone_id);
     if (traj_goal_defined_[drone_id]) 
     {
       controllers_[drone_id]->updateReference(desired_traj_[drone_id]);
@@ -738,13 +738,13 @@ void PidControllerNode::timerCallback(int drone_id)
     {
       controllers_[drone_id]->updateReference(circular_traj_[drone_id]);
     }
-    // RCLCPP_INFO(this->get_logger(), "Método updateReference() del plugin %d llamado correctamente.", drone_id);
+    RCLCPP_INFO(this->get_logger(), "Método updateReference() del plugin %d llamado correctamente.", drone_id);
 
 
     /* Update state */
-    // RCLCPP_INFO(this->get_logger(), "Llamando al método updateState() del plugin %d...", drone_id);
+    RCLCPP_INFO(this->get_logger(), "Llamando al método updateState() del plugin %d...", drone_id);
     controllers_[drone_id]->updateState(current_pose_[drone_id], current_twist_[drone_id]);
-    // RCLCPP_INFO(this->get_logger(), "Método updateState() del plugin %d llamado correctamente.", drone_id);
+    RCLCPP_INFO(this->get_logger(), "Método updateState() del plugin %d llamado correctamente.", drone_id);
 
     geometry_msgs::msg::PoseStamped unused_pose;
     geometry_msgs::msg::TwistStamped command_twist;
@@ -752,10 +752,10 @@ void PidControllerNode::timerCallback(int drone_id)
 
 
     /* Calculate output */
-    // RCLCPP_INFO(this->get_logger(), "Llamando al método computeOutput() del plugin %d...", drone_id);
+    RCLCPP_INFO(this->get_logger(), "Llamando al método computeOutput() del plugin %d...", drone_id);
     if(controllers_[drone_id]->computeOutput(0.100, unused_pose, command_twist, unused_thrust))
     {
-      // RCLCPP_INFO(this->get_logger(), "Método computeOutput() del plugin %d llamado correctamente.", drone_id);
+      RCLCPP_INFO(this->get_logger(), "Método computeOutput() del plugin %d llamado correctamente.", drone_id);
     }
     else
     {
