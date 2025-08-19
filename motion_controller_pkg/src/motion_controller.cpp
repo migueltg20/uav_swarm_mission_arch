@@ -409,6 +409,14 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
     );
 
     tf2::doTransform(goal.point, goal.point, transform);
+
+    RCLCPP_INFO(this->get_logger(), 
+      "UAV %d: Transformed goal to [%.2f, %.2f, %.2f] in frame %s", 
+      drone_id,
+      goal.point.pose.position.x,
+      goal.point.pose.position.y, 
+      goal.point.pose.position.z,
+      current_pose_[drone_id].header.frame_id.c_str());
   }
   catch (const tf2::TransformException &ex)
   {
@@ -520,6 +528,14 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
 
     if (goal.trajectory.setpoints.empty() && !goal.point.header.frame_id.empty())    // If linear trajectory from initial point to goal + circular trajectory around goal
     {
+      RCLCPP_INFO(this->get_logger(),
+        "UAV %d: Creating circular trajectory around [%.2f, %.2f, %.2f] with radius %.2f",
+        drone_id,
+        goal.point.pose.position.x,
+        goal.point.pose.position.y,
+        goal.point.pose.position.z,
+        goal.radius);
+
       /* Circular trajectory */
       circular_traj_[drone_id].setpoints.resize(circular_points);
       for (int i = 0; i < circular_points; ++i)
