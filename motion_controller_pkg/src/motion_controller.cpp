@@ -105,7 +105,7 @@ void PidControllerNode::initTfListener()
 /* Node destruction */
 PidControllerNode::~PidControllerNode()
 {
-  RCLCPP_INFO(this->get_logger(), "Destruyendo el nodo y liberando plugins...");
+  RCLCPP_INFO(this->get_logger(), "Destroying PID controller node...");
   for (int i = 0; i < 4; ++i) 
   {
     if (controllers_[i]) 
@@ -222,7 +222,7 @@ void PidControllerNode::executeGoal(
 
     if (!controllers_[drone_id]) 
     {
-      RCLCPP_ERROR(this->get_logger(), "Error: No se pudo crear la instancia del plugin para el UAV %d.", drone_id);
+      RCLCPP_ERROR(this->get_logger(), "Error: Cannot create plugin instance for UAV %d.", drone_id);
       rclcpp::shutdown();
       return;
     }
@@ -236,7 +236,7 @@ void PidControllerNode::executeGoal(
   params_[drone_id] = this->get_parameters(this->list_parameters({}, 10).names);
   if(!controllers_[drone_id]->updateParams(params_[drone_id]))
   {
-    RCLCPP_ERROR(this->get_logger(), "Error al actualizar parámetros en el plugin %d.", drone_id);
+    RCLCPP_ERROR(this->get_logger(), "Error updating parameters in plugin %d.", drone_id);
     rclcpp::shutdown();
     return;
   }
@@ -253,11 +253,11 @@ void PidControllerNode::executeGoal(
 
   if(!controllers_[drone_id]->setMode(input_mode_[drone_id], output_mode_))
   {
-    RCLCPP_ERROR(this->get_logger(), "Error al establecer los modos de control para el UAV %d.", drone_id);
+    RCLCPP_ERROR(this->get_logger(), "Error setting control modes for UAV %d.", drone_id);
     rclcpp::shutdown();
     return;
   }
-  RCLCPP_INFO(this->get_logger(), "Modos de control para el UAV %d establecidos correctamente.", drone_id);
+  RCLCPP_INFO(this->get_logger(), "Control modes for UAV %d set successfully.", drone_id);
 
 
   /* Call the trajectory callback with the goal */
@@ -307,16 +307,17 @@ void PidControllerNode::poseCallback(int drone_id, const geometry_msgs::msg::Pos
         current_pose_[drone_id].pose.position.z <= desired_traj_[drone_id].setpoints[0].position.z + distance_threshold_)
     {
       /* If the current pose is close to the desired trajectory point, update it */
-      desired_traj_[drone_id].setpoints.erase(desired_traj_[drone_id].setpoints.begin());
+      if (desired_traj_[drone_id].setpoints.size() > 1)
+        desired_traj_[drone_id].setpoints.erase(desired_traj_[drone_id].setpoints.begin());
 
-      /* Check if the trajectory is empty */
-      if(desired_traj_[drone_id].setpoints.empty())
+      /* Check if the trajectory is "empty" */
+      if(desired_traj_[drone_id].setpoints.size() <= 1 && !not_circular_[drone_id])
       {
         traj_goal_defined_[drone_id] = false;
 
         if (not_circular_[drone_id])
         {
-          RCLCPP_INFO(this->get_logger(), "La trayectoria del UAV %d ha terminado.", drone_id);
+          RCLCPP_INFO(this->get_logger(), "Linear trajectory for UAV %d has finished.", drone_id);
 
           /* Set the result and mark the goal as succeeded */
           result->success = true;
@@ -420,7 +421,7 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
   }
   catch (const tf2::TransformException &ex)
   {
-    RCLCPP_ERROR(this->get_logger(), "Error al transformar la pose de destino: %s", ex.what());
+    RCLCPP_ERROR(this->get_logger(), "Error transforming goal pose: %s", ex.what());
     return;
   }
 
@@ -493,7 +494,7 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
     }
     else if (goal.point.header.frame_id.empty())    // If the goal is not defined
     {
-      RCLCPP_ERROR(this->get_logger(), "Error: El objetivo no está definido para el UAV %d.", drone_id);
+      RCLCPP_ERROR(this->get_logger(), "Error: Goal is not defined for UAV %d.", drone_id);
 
       /* Set the result and mark the goal as succeeded */
       result->success = false;
@@ -510,7 +511,7 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
   case 1:  // If the goal doesn't include a circular trajectory
     if (goal.radius <= 0.0) 
     {
-      RCLCPP_ERROR(this->get_logger(), "Error: El radio de la trayectoria circular del UAV %d debe ser mayor que cero.", drone_id);
+      RCLCPP_ERROR(this->get_logger(), "Error: Circular trajectory radius for UAV %d must be greater than zero.", drone_id);
 
       /* Set the result and mark the goal as succeeded */
       result->success = false;
@@ -544,7 +545,7 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
         circular_traj_[drone_id].setpoints[i].position.x    = goal.point.pose.position.x + goal.radius * std::cos(theta);
         circular_traj_[drone_id].setpoints[i].position.y    = goal.point.pose.position.y + goal.radius * std::sin(theta);
         circular_traj_[drone_id].setpoints[i].position.z    = goal.point.pose.position.z;
-        double v = 1.0;
+        double v = 2.0;
         circular_traj_[drone_id].setpoints[i].twist.x       = v * std::cos(theta);
         circular_traj_[drone_id].setpoints[i].twist.y       = v * std::sin(theta);
         circular_traj_[drone_id].setpoints[i].twist.z       = 0.0;
@@ -620,7 +621,7 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
         circular_traj_[drone_id].setpoints[i].position.x    = current_pose_[drone_id].pose.position.x + goal.radius * std::cos(theta);
         circular_traj_[drone_id].setpoints[i].position.y    = current_pose_[drone_id].pose.position.y + goal.radius * std::sin(theta);
         circular_traj_[drone_id].setpoints[i].position.z    = 5.0;    // Keep or adjust height if necessary
-        double v = 1.0;
+        double v = 2.0;
         circular_traj_[drone_id].setpoints[i].twist.x       = v * std::cos(theta);
         circular_traj_[drone_id].setpoints[i].twist.y       = v * std::sin(theta);
         circular_traj_[drone_id].setpoints[i].twist.z       = 0.0;
@@ -644,7 +645,7 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
         circular_traj_[drone_id].setpoints[i].position.x    = goal.trajectory.setpoints.back().position.x + goal.radius * std::cos(theta);
         circular_traj_[drone_id].setpoints[i].position.y    = goal.trajectory.setpoints.back().position.y + goal.radius * std::sin(theta);
         circular_traj_[drone_id].setpoints[i].position.z    = goal.trajectory.setpoints.back().position.z;
-        double v = 1.0;
+        double v = 2.0;
         circular_traj_[drone_id].setpoints[i].twist.x       = v * std::cos(theta);
         circular_traj_[drone_id].setpoints[i].twist.y       = v * std::sin(theta);
         circular_traj_[drone_id].setpoints[i].twist.z       = 0.0;
@@ -689,7 +690,7 @@ void PidControllerNode::timerCallback(int drone_id)
 
   if(!traj_goal_defined_[drone_id] && circular_traj_[drone_id].setpoints.empty())
   {
-    RCLCPP_WARN(this->get_logger(), "No se ha definido la trayectoria deseada para el UAV %d.", drone_id);
+    RCLCPP_WARN(this->get_logger(), "No desired trajectory defined for UAV %d.", drone_id);
     return;
   }
   else
@@ -722,7 +723,7 @@ void PidControllerNode::timerCallback(int drone_id)
     /* Calculate output */
     if(!controllers_[drone_id]->computeOutput(0.100, unused_pose, command_twist, unused_thrust))
     {
-      RCLCPP_ERROR(this->get_logger(), "Error al calcular la salida del plugin %d.", drone_id);
+      RCLCPP_ERROR(this->get_logger(), "Error computing output for plugin %d.", drone_id);
       rclcpp::shutdown();
       return;
     }
@@ -778,7 +779,7 @@ void PidControllerNode::timerCallback(int drone_id)
     }
     catch (const tf2::TransformException &ex)
     {
-      RCLCPP_ERROR(this->get_logger(), "Error al transformar la salida del plugin: %s", ex.what());
+      RCLCPP_ERROR(this->get_logger(), "Error transforming plugin output: %s", ex.what());
       return;
     }
 

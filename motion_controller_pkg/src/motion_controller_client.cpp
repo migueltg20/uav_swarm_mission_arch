@@ -13,7 +13,7 @@ using namespace std::chrono_literals;
 
 
 // --------------------------------------------------------------------------------------------
-MotionClientNode::MotionClientNode() : Node("motion_client")
+MotionClientNode::MotionClientNode() : Node("motion_controller_client")
 {
   /* Suscription to the goal command topic */
   goal_subscriber_ = this->create_subscription<GoalCommand>(
@@ -27,7 +27,7 @@ MotionClientNode::MotionClientNode() : Node("motion_client")
 // --------------------------------------------------------------------------------------------
 MotionClientNode::~MotionClientNode()
 {
-  RCLCPP_INFO(this->get_logger(), "Destruyendo el nodo cliente...");
+  RCLCPP_INFO(this->get_logger(), "Destroying motion client node...");
 }
 // --------------------------------------------------------------------------------------------
 

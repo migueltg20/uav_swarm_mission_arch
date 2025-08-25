@@ -117,7 +117,7 @@ private:
 
     // "static constexpr" allows compile-time evaluation and optimization (one-shared copy)
     static constexpr double distance_threshold_ = 0.2;   
-    static constexpr double circular_threshold_ = 0.15;
+    static constexpr double circular_threshold_ = 0.2;
     static constexpr int num_points_ = 30;
 };
 
