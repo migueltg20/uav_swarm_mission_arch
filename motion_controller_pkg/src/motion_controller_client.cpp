@@ -169,7 +169,7 @@ void MotionClientNode::sendGoal(const GoalCommand::SharedPtr msg)
     if (active_goals_[id] != nullptr) 
     {
       auto cancel_future = client->async_cancel_goal(active_goals_[id]);
-      // Wait for cancellation or implement proper state management
+      /* Wait for cancellation or implement proper state management */
       if (cancel_future.wait_for(std::chrono::milliseconds(100)) != std::future_status::ready) {
         RCLCPP_WARN(get_logger(), "Cancellation timeout for drone %d", id);
       }

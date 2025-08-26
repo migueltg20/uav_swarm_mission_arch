@@ -36,7 +36,7 @@
 
 /*!*******************************************************************************************
  *  \file       motion_controller.hpp
- *  \brief      Controller server class definition
+ *  \brief      Controller class implementation + action servers
  *  \authors    Miguel Tejado García
  ********************************************************************************************/
 

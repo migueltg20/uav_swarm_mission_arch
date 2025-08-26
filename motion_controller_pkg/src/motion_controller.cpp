@@ -5,8 +5,8 @@ using namespace std::chrono_literals;
 
 
 /*!*******************************************************************************************
- *  \file       motion_controller_client.cpp
- *  \brief      Controller client class implementation
+ *  \file       motion_controller.cpp
+ *  \brief      Controller class implementation + action servers
  *  \authors    Miguel Tejado García
  ********************************************************************************************/
 
@@ -315,19 +315,7 @@ void PidControllerNode::poseCallback(int drone_id, const geometry_msgs::msg::Pos
       {
         traj_goal_defined_[drone_id] = false;
 
-        if (not_circular_[drone_id])
-        {
-          RCLCPP_INFO(this->get_logger(), "Linear trajectory for UAV %d has finished.", drone_id);
-
-          /* Set the result and mark the goal as succeeded */
-          result->success = true;
-          active_goals_[drone_id]->succeed(result);
-
-          RCLCPP_INFO(this->get_logger(), "Goal for UAV %d completed successfully", drone_id);
-
-          /* Clean up completed goal */
-          active_goals_[drone_id] = nullptr;
-        }
+        RCLCPP_INFO(this->get_logger(), "Linear trajectory for UAV %d has finished.", drone_id);
       }
     }
   }
@@ -399,33 +387,6 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
   }
 
 
-  /* Transform the goal pose to the UAV's reference frame using the tf_listener_ */
-  geometry_msgs::msg::TransformStamped transform;
-  try
-  {
-    transform = tf_buffer_.lookupTransform(
-      current_pose_[drone_id].header.frame_id,
-      goal.point.header.frame_id,
-      rclcpp::Time(0), rclcpp::Duration(2s)
-    );
-
-    tf2::doTransform(goal.point, goal.point, transform);
-
-    RCLCPP_INFO(this->get_logger(), 
-      "UAV %d: Transformed goal to [%.2f, %.2f, %.2f] in frame %s", 
-      drone_id,
-      goal.point.pose.position.x,
-      goal.point.pose.position.y, 
-      goal.point.pose.position.z,
-      current_pose_[drone_id].header.frame_id.c_str());
-  }
-  catch (const tf2::TransformException &ex)
-  {
-    RCLCPP_ERROR(this->get_logger(), "Error transforming goal pose: %s", ex.what());
-    return;
-  }
-
-
   switch (goal.circular)
   {
   case 0:   // If the goal includes a circular trajectory
@@ -433,6 +394,25 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
 
     if (goal.trajectory.setpoints.empty() && !goal.point.header.frame_id.empty())    // If linear trajectory from initial point to goal
     {
+      /* Transform the goal pose to the UAV's reference frame using the tf_listener_ */
+      geometry_msgs::msg::TransformStamped transform;
+      try
+      {
+        transform = tf_buffer_.lookupTransform(
+          current_pose_[drone_id].header.frame_id,
+          goal.point.header.frame_id,
+          rclcpp::Time(0), rclcpp::Duration(2s)
+        );
+
+        tf2::doTransform(goal.point, goal.point, transform);
+      }
+      catch (const tf2::TransformException &ex)
+      {
+        RCLCPP_ERROR(this->get_logger(), "Error transforming goal pose: %s", ex.what());
+        return;
+      }
+
+
       /* Start point (keep or adjust height if necessary) */
       geometry_msgs::msg::PoseStamped start = current_pose_[drone_id];
       start.pose.position.z = 5.0;
@@ -443,6 +423,7 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
 
       /* Trajectory size definition */
       as2_msgs::msg::TrajectorySetpoints traj;
+      traj.header.frame_id = goal.point.header.frame_id;
       traj.setpoints.resize(num_points_);
 
       /* Displacement vector, normalized direction and fixed yaw */
@@ -509,6 +490,8 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
     break;
 
   case 1:  // If the goal doesn't include a circular trajectory
+    not_circular_[drone_id] = false;
+
     if (goal.radius <= 0.0) 
     {
       RCLCPP_ERROR(this->get_logger(), "Error: Circular trajectory radius for UAV %d must be greater than zero.", drone_id);
@@ -529,25 +512,37 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
 
     if (goal.trajectory.setpoints.empty() && !goal.point.header.frame_id.empty())    // If linear trajectory from initial point to goal + circular trajectory around goal
     {
-      RCLCPP_INFO(this->get_logger(),
-        "UAV %d: Creating circular trajectory around [%.2f, %.2f, %.2f] with radius %.2f",
-        drone_id,
-        goal.point.pose.position.x,
-        goal.point.pose.position.y,
-        goal.point.pose.position.z,
-        goal.radius);
+      /* Transform the goal pose to the UAV's reference frame using the tf_listener_ */
+      geometry_msgs::msg::TransformStamped transform;
+      try
+      {
+        transform = tf_buffer_.lookupTransform(
+          current_pose_[drone_id].header.frame_id,
+          goal.point.header.frame_id,
+          rclcpp::Time(0), rclcpp::Duration(2s)
+        );
+
+        tf2::doTransform(goal.point, goal.point, transform);
+      }
+      catch (const tf2::TransformException &ex)
+      {
+        RCLCPP_ERROR(this->get_logger(), "Error transforming goal pose: %s", ex.what());
+        return;
+      }
+
 
       /* Circular trajectory */
       circular_traj_[drone_id].setpoints.resize(circular_points);
+      circular_traj_[drone_id].header.frame_id = goal.point.header.frame_id;
       for (int i = 0; i < circular_points; ++i)
       {
         double theta = 2.0 * M_PI * static_cast<double>(i) / circular_points;
         circular_traj_[drone_id].setpoints[i].position.x    = goal.point.pose.position.x + goal.radius * std::cos(theta);
         circular_traj_[drone_id].setpoints[i].position.y    = goal.point.pose.position.y + goal.radius * std::sin(theta);
         circular_traj_[drone_id].setpoints[i].position.z    = goal.point.pose.position.z;
-        double v = 2.0;
-        circular_traj_[drone_id].setpoints[i].twist.x       = v * std::cos(theta);
-        circular_traj_[drone_id].setpoints[i].twist.y       = v * std::sin(theta);
+        double v = 1.0;
+        circular_traj_[drone_id].setpoints[i].twist.x       = -v * std::sin(theta);
+        circular_traj_[drone_id].setpoints[i].twist.y       = v * std::cos(theta);
         circular_traj_[drone_id].setpoints[i].twist.z       = 0.0;
         circular_traj_[drone_id].setpoints[i].acceleration.x = 0.0;
         circular_traj_[drone_id].setpoints[i].acceleration.y = 0.0;
@@ -567,6 +562,7 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
 
       /* Trajectory size definition */
       as2_msgs::msg::TrajectorySetpoints traj;
+      traj.header.frame_id = goal.point.header.frame_id;
       traj.setpoints.resize(num_points_);
 
       /* Displacement vector, normalized direction and fixed yaw */
@@ -615,15 +611,16 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
     {
       /* Circular trajectory */
       circular_traj_[drone_id].setpoints.resize(circular_points);
+      circular_traj_[drone_id].header.frame_id = current_pose_[drone_id].header.frame_id;
       for (int i = 0; i < circular_points; ++i)
       {
         double theta = 2.0 * M_PI * static_cast<double>(i) / circular_points;
         circular_traj_[drone_id].setpoints[i].position.x    = current_pose_[drone_id].pose.position.x + goal.radius * std::cos(theta);
         circular_traj_[drone_id].setpoints[i].position.y    = current_pose_[drone_id].pose.position.y + goal.radius * std::sin(theta);
         circular_traj_[drone_id].setpoints[i].position.z    = 5.0;    // Keep or adjust height if necessary
-        double v = 2.0;
-        circular_traj_[drone_id].setpoints[i].twist.x       = v * std::cos(theta);
-        circular_traj_[drone_id].setpoints[i].twist.y       = v * std::sin(theta);
+        double v = 1.0;
+        circular_traj_[drone_id].setpoints[i].twist.x       = -v * std::sin(theta);
+        circular_traj_[drone_id].setpoints[i].twist.y       = v * std::cos(theta);
         circular_traj_[drone_id].setpoints[i].twist.z       = 0.0;
         circular_traj_[drone_id].setpoints[i].acceleration.x = 0.0;
         circular_traj_[drone_id].setpoints[i].acceleration.y = 0.0;
@@ -639,15 +636,16 @@ void PidControllerNode::trajCallback(const GoalCommand & msg)
       
       /* Circular trajectory */
       circular_traj_[drone_id].setpoints.resize(circular_points);
+      circular_traj_[drone_id].header.frame_id = goal.trajectory.header.frame_id;
       for (int i = 0; i < circular_points; ++i)
       {
         double theta = 2.0 * M_PI * static_cast<double>(i) / circular_points;
         circular_traj_[drone_id].setpoints[i].position.x    = goal.trajectory.setpoints.back().position.x + goal.radius * std::cos(theta);
         circular_traj_[drone_id].setpoints[i].position.y    = goal.trajectory.setpoints.back().position.y + goal.radius * std::sin(theta);
         circular_traj_[drone_id].setpoints[i].position.z    = goal.trajectory.setpoints.back().position.z;
-        double v = 2.0;
-        circular_traj_[drone_id].setpoints[i].twist.x       = v * std::cos(theta);
-        circular_traj_[drone_id].setpoints[i].twist.y       = v * std::sin(theta);
+        double v = 1.0;
+        circular_traj_[drone_id].setpoints[i].twist.x       = -v * std::sin(theta);
+        circular_traj_[drone_id].setpoints[i].twist.y       = v * std::cos(theta);
         circular_traj_[drone_id].setpoints[i].twist.z       = 0.0;
         circular_traj_[drone_id].setpoints[i].acceleration.x = 0.0;
         circular_traj_[drone_id].setpoints[i].acceleration.y = 0.0;
@@ -690,7 +688,20 @@ void PidControllerNode::timerCallback(int drone_id)
 
   if(!traj_goal_defined_[drone_id] && circular_traj_[drone_id].setpoints.empty())
   {
-    RCLCPP_WARN(this->get_logger(), "No desired trajectory defined for UAV %d.", drone_id);
+    /* Only warn if we've been running for a while (avoid startup race conditions) */
+    static std::array<std::chrono::steady_clock::time_point, 4> first_check_time;
+    auto now = std::chrono::steady_clock::now();
+
+    if (first_check_time[drone_id] == std::chrono::steady_clock::time_point{}) 
+    {
+      first_check_time[drone_id] = now;
+    }
+  
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - first_check_time[drone_id]);
+    if (elapsed > std::chrono::milliseconds(500)) // Only warn after 500ms
+    {  
+      RCLCPP_WARN(this->get_logger(), "No desired trajectory defined for UAV %d.", drone_id);
+    }
     return;
   }
   else
