@@ -726,10 +726,10 @@ void PidControllerNode::timerCallback(int drone_id)
     /* Update state */
     controllers_[drone_id]->updateState(current_pose_[drone_id], current_twist_[drone_id]);
 
+    
     geometry_msgs::msg::PoseStamped unused_pose;
     geometry_msgs::msg::TwistStamped command_twist;
     as2_msgs::msg::Thrust unused_thrust;
-
 
     /* Calculate output */
     if(!controllers_[drone_id]->computeOutput(0.100, unused_pose, command_twist, unused_thrust))
