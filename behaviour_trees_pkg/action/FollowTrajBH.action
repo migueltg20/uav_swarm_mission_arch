@@ -2,6 +2,7 @@
 
 # Request
 as2_msgs/TrajectorySetpoints trajectory         # trajectory to follow
+float32 radius                                  # radius of a circular trajectory
 ---
 # Result 
 bool follow_path_success                        # false if failed to follow_path

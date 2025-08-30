@@ -27,8 +27,7 @@
 #include <tf2_ros/transform_listener.h>  
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp> 
 
-// Aerostack2 libraries
-#include "as2_msgs/msg/control_mode.hpp"
+// Aerostack2 
 #include "as2_core/node.hpp"
 #include "as2_motion_controller/controller_base.hpp"
 
