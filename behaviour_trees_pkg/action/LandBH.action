@@ -1,0 +1,11 @@
+# Land behavior action definition
+
+# Request
+bool land                                           # land?
+---
+# Result
+bool land_success                                   # false if failed to land
+---
+# Feedback
+geometry_msgs/TwistStamped actual_land_speed        # actual speed (m/s)
+float32 actual_land_height                          # actual height (m)

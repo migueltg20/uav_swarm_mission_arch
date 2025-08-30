@@ -64,7 +64,7 @@ private:
       const rclcpp_action::GoalUUID & uuid,
       std::shared_ptr<const GoalPoint::Goal> goal);
 
-    void cleanupGoal(int drone_id, bool cleanup_controller);
+    void cleanupGoal(int drone_id);
 
     rclcpp_action::CancelResponse handleCancel(
       const std::shared_ptr<rclcpp_action::ServerGoalHandle<GoalPoint>> goal_handle);
@@ -75,7 +75,7 @@ private:
     void executeGoal(
       const std::shared_ptr<rclcpp_action::ServerGoalHandle<GoalPoint>> goal_handle);
 
-    void trajCallback(const GoalCommand & msg);
+    void processGoal(const GoalCommand & msg);
 
 
     // Per-UAV mutexes (in the rare case that the callbacks get uncoordinated when checking the status of the UAVs)
@@ -116,9 +116,8 @@ private:
     std::array<as2_msgs::msg::TrajectorySetpoints, 4> circular_traj_;
 
     // "static constexpr" allows compile-time evaluation and optimization (one-shared copy)
-    static constexpr double distance_threshold_ = 0.2;   
-    static constexpr double circular_threshold_ = 0.2;
-    static constexpr int num_points_ = 30;
+    static constexpr double distance_threshold_ = 0.4;   
+    static constexpr double circular_threshold_ = 0.3;
 };
 
 #endif  // MOTION_CONTROLLER_PKG__MOTION_CONTROLLER_HPP_

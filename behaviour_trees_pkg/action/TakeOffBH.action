@@ -1,0 +1,11 @@
+# Takeoff behavior action definition
+
+# Request
+float32 takeoff_height                                  # takeoff height (m)
+---
+# Result
+bool takeoff_success                                    # false if failed to takeoff
+---
+# Feedback
+geometry_msgs/TwistStamped actual_takeoff_speed         # actual speed (m/s)
+float32 actual_takeoff_height                           # actual height (m)
