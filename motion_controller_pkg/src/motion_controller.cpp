@@ -312,7 +312,7 @@ void PidControllerNode::poseCallback(int drone_id, const geometry_msgs::msg::Pos
         result->success = true;
         active_goals_[drone_id]->succeed(result);
       }
-      else if (!not_circular_[drone_id])
+      else if (desired_traj_[drone_id].setpoints.size() <= 1 && !not_circular_[drone_id])
       {
         traj_goal_defined_[drone_id] = false;  
       }
