@@ -1,6 +1,7 @@
 # Follow trajectory behavior action definition
 
 # Request
+uint8 drone_id                                  # drone ID
 as2_msgs/TrajectorySetpoints trajectory         # trajectory to follow
 float32 radius                                  # radius of a circular trajectory
 ---

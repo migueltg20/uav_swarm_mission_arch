@@ -9,18 +9,19 @@ endif()
 # ------------------------------------------------------------------------------------
 # Find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rclcpp_lifecycle REQUIRED)
+find_package(rclpy REQUIRED)
 find_package(rclcpp_action REQUIRED)
-find_package(as2_motion_controller REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(as2_msgs REQUIRED)
 find_package(as2_core REQUIRED)
-find_package(pluginlib REQUIRED)
+find_package(as2_behavior REQUIRED)
+find_package(as2_behavior_tree REQUIRED)
+find_package(behaviortree_cpp_v3 REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(tf2_ros REQUIRED)
-find_package(tf2_geometry_msgs REQUIRED)
-find_package(Threads REQUIRED)
-find_package(Eigen3 REQUIRED)
+find_package(motion_controller_pkg REQUIRED)
+find_package(behaviour_trees_pkg REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(rosidl_default_runtime REQUIRED)
 # ------------------------------------------------------------------------------------
@@ -33,107 +34,215 @@ ament_export_dependencies(rosidl_default_runtime)
 
 
 
-# # ------------------------------------------------------------------------------------
-# # Generate the action and message files
-# rosidl_generate_interfaces(${PROJECT_NAME}
-#   "msg/GoalCommand.msg"
-#   "action/GoalPoint.action"
-#   DEPENDENCIES
-#     geometry_msgs
-#     as2_msgs
-# )
-# # ------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------
+# ament_python_install_package(${PROJECT_NAME})
+# ------------------------------------------------------------------------------------
 
 
 
-# # ------------------------------------------------------------------------------------
-# rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-# # ------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------
+# Generate the action and message files
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "action/TakeOffBh.action"
+  "action/LandBh.action"
+  "action/FollowTrajBh.action"
+  DEPENDENCIES
+    geometry_msgs
+    as2_msgs
+)
+# ------------------------------------------------------------------------------------
 
 
 
-# # ------------------------------------------------------------------------------------
-# # Action server node (low level controller node)
-# add_executable(motion_controller
-#   src/motion_controller.cpp
-# )
-
-# # ROS2 libraries/packages
-# ament_target_dependencies(motion_controller
-#   rclcpp
-#   as2_motion_controller
-#   as2_msgs
-#   as2_core
-#   geometry_msgs
-#   pluginlib
-#   # motion_controller_pkg
-#   rosidl_default_runtime
-# )
-
-# # Non-ROS2 libraries/packages
-# target_link_libraries(motion_controller
-#   Threads::Threads
-#   Eigen3::Eigen
-#   tf2_ros::tf2_ros
-#   tf2_geometry_msgs::tf2_geometry_msgs
-#   ${cpp_typesupport_target}
-# )
-# # ------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+# ------------------------------------------------------------------------------------
 
 
 
-# # ------------------------------------------------------------------------------------
-# # Action client node
-# add_executable(motion_controller_client
-#   src/motion_controller_client.cpp
-# )
+# ------------------------------------------------------------------------------------
+# Action server node (low level controller node)
+add_executable(takeoff_server
+  src/takeoff_bh_server.cpp
+)
 
-# # ROS2 libraries/packages
-# ament_target_dependencies(motion_controller_client
-#   rclcpp
-#   rclcpp_action
-#   as2_core
-#   # motion_controller_pkg  
-#   rosidl_default_runtime
-# )
+# ROS2 libraries/packages
+ament_target_dependencies(takeoff_server
+  rclcpp
+  rclcpp_action
+  as2_msgs
+  as2_behavior
+  geometry_msgs
+  motion_controller_pkg
+  rosidl_default_runtime
+)
 
-# target_link_libraries(motion_controller_client
-#   ${cpp_typesupport_target}  # Add this line
-# )
-# # ------------------------------------------------------------------------------------
+# Non-ROS2 libraries/packages
+target_link_libraries(takeoff_server
+  ${cpp_typesupport_target}
+)
+# ------------------------------------------------------------------------------------
 
 
 
-# # ------------------------------------------------------------------------------------
-# # Include directories
-# include_directories(
-#   ${CMAKE_CURRENT_SOURCE_DIR}/include
-# )
+# ------------------------------------------------------------------------------------
+# Action server node (low level controller node)
+add_executable(land_server
+  src/land_bh_server.cpp
+)
 
-# # Install targets
-# install(TARGETS
-#   motion_controller
-#   motion_controller_client
-#   DESTINATION lib/${PROJECT_NAME}
-# )
+# ROS2 libraries/packages
+ament_target_dependencies(land_server
+  rclcpp
+  rclcpp_action
+  as2_msgs
+  as2_behavior
+  geometry_msgs
+  motion_controller_pkg
+  rosidl_default_runtime
+)
 
-# # Install configuration files
-# install(DIRECTORY config/
-#   DESTINATION share/${PROJECT_NAME}/config
-# )
+# Non-ROS2 libraries/packages
+target_link_libraries(land_server
+  ${cpp_typesupport_target}
+)
+# ------------------------------------------------------------------------------------
 
-# # Install launch files
-# install(DIRECTORY
-#   launch
-#   DESTINATION share/${PROJECT_NAME}
-# )
 
-# # Install rviz files
-# install(DIRECTORY
-#   rviz
-#   DESTINATION share/${PROJECT_NAME}
-# )
-# # ------------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------------
+# Action server node (low level controller node)
+add_executable(follow_traj_server
+  src/followtraj_bh_server.cpp
+)
+
+# ROS2 libraries/packages
+ament_target_dependencies(follow_traj_server
+  rclcpp
+  rclcpp_action
+  as2_msgs
+  as2_behavior
+  geometry_msgs
+  motion_controller_pkg
+  rosidl_default_runtime
+)
+
+# Non-ROS2 libraries/packages
+target_link_libraries(follow_traj_server
+  ${cpp_typesupport_target}
+)
+# ------------------------------------------------------------------------------------
+
+
+
+# ------------------------------------------------------------------------------------
+# Action server node (low level controller node)
+add_executable(arming_server
+  src/arming_bh_server.cpp
+)
+
+# ROS2 libraries/packages
+ament_target_dependencies(arming_server
+  rclcpp
+  rclcpp_action
+  std_srvs
+  as2_msgs
+  as2_behavior
+  rosidl_default_runtime
+)
+
+# Non-ROS2 libraries/packages
+target_link_libraries(arming_server
+  ${cpp_typesupport_target}
+)
+# ------------------------------------------------------------------------------------
+
+
+
+# ------------------------------------------------------------------------------------
+# Action server node (low level controller node)
+add_executable(offboard_server
+  src/offboard_bh_server.cpp
+)
+
+# ROS2 libraries/packages
+ament_target_dependencies(offboard_server
+  rclcpp
+  rclcpp_action
+  std_srvs
+  as2_msgs
+  as2_behavior
+  rosidl_default_runtime
+)
+
+# Non-ROS2 libraries/packages
+target_link_libraries(offboard_server
+  ${cpp_typesupport_target}
+)
+# ------------------------------------------------------------------------------------
+
+
+
+# ------------------------------------------------------------------------------------
+# Action manager node
+add_executable(bt_manager
+  src/bt_manager.cpp
+)
+
+ament_target_dependencies(bt_manager
+  rclcpp
+  behaviortree_cpp_v3
+  as2_behavior_tree
+  rosidl_default_runtime
+)
+
+# Link the generated typesupport library
+target_link_libraries(bt_manager
+  ${cpp_typesupport_target}
+)
+# ------------------------------------------------------------------------------------
+
+
+
+# ------------------------------------------------------------------------------------
+# Include directories
+include_directories(
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${as2_behavior_tree_INCLUDE_DIRS}
+)
+
+# Install targets
+install(TARGETS
+  takeoff_server
+  land_server
+  follow_traj_server
+  arming_server
+  offboard_server
+  bt_manager
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+# Install configuration files
+install(DIRECTORY config/
+  DESTINATION share/${PROJECT_NAME}/config
+)
+
+# Install launch files
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
+# Install Python scripts
+install(PROGRAMS
+  scripts/takeoff_bh_client.py
+  scripts/land_bh_client.py
+  scripts/followtraj_bh_client.py
+  scripts/arming_bh_client.py
+  scripts/offboard_bh_client.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+# ------------------------------------------------------------------------------------
 
 
 

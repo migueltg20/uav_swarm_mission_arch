@@ -11,7 +11,6 @@ endif()
 # Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rclcpp_lifecycle REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(as2_motion_controller REQUIRED)
 find_package(as2_msgs REQUIRED)
@@ -62,6 +61,7 @@ add_executable(motion_controller
 # ROS2 libraries/packages
 ament_target_dependencies(motion_controller
   rclcpp
+  rclcpp_action
   as2_motion_controller
   as2_msgs
   as2_core

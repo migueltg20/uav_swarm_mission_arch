@@ -60,7 +60,7 @@ private:
 
     // Action server callbacks
     rclcpp_action::GoalResponse handleGoal(
-      const rclcpp_action::GoalUUID & uuid,
+      const rclcpp_action::GoalUUID & /*uuid*/,
       std::shared_ptr<const GoalPoint::Goal> goal);
 
     void cleanupGoal(int drone_id);
@@ -104,8 +104,8 @@ private:
 
     std::array<std::vector<rclcpp::Parameter>, 4> params_;
 
-    std::array<as2_msgs::msg::ControlMode, 4> input_mode_;
-    as2_msgs::msg::ControlMode output_mode_;                  // Keep as unique for ease of use (see its description in .cpp file)
+    as2_msgs::msg::ControlMode input_mode_;         // Keep as unique for ease of use (see its description in .cpp file)
+    as2_msgs::msg::ControlMode output_mode_;                  
 
     std::array<geometry_msgs::msg::PoseStamped, 4> current_pose_;
     std::array<geometry_msgs::msg::TwistStamped, 4> current_twist_;
@@ -115,7 +115,8 @@ private:
     std::array<as2_msgs::msg::TrajectorySetpoints, 4> circular_traj_;
 
     // "static constexpr" allows compile-time evaluation and optimization (one-shared copy)
-    static constexpr double distance_threshold_ = 0.4;   
+    static constexpr double distance_threshold_ = 0.4;
+    static constexpr double height_threshold_ = 0.1;
     static constexpr double circular_threshold_ = 0.3;
 };
 

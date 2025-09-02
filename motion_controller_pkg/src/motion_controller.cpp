@@ -122,20 +122,17 @@ PidControllerNode::~PidControllerNode()
 // --------------------------------------------------------------------------------------------
 /* Goal handling */
 rclcpp_action::GoalResponse PidControllerNode::handleGoal(
-  const rclcpp_action::GoalUUID & uuid,
+  const rclcpp_action::GoalUUID & /*uuid*/,
   std::shared_ptr<const GoalPoint::Goal> goal)
 {
   RCLCPP_INFO(this->get_logger(), "Received new goal request");
-  RCLCPP_WARN(this->get_logger(), "Received goal command: \ndrone_id: %d \nposition: [%f, %f, %f] \ncircular = %d \nradius = %f \nControl mode: [%d, %d, %d]",
+  RCLCPP_WARN(this->get_logger(), "Received goal command: \ndrone_id: %d \nposition: [%f, %f, %f] \ncircular = %d \nradius = %f",
     goal->goal_command.drone_id,
     goal->goal_command.point.pose.position.x,
     goal->goal_command.point.pose.position.y,
     goal->goal_command.point.pose.position.z,
     goal->goal_command.circular,
-    goal->goal_command.radius,
-    goal->goal_command.control_mode.control_mode,
-    goal->goal_command.control_mode.yaw_mode,
-    goal->goal_command.control_mode.reference_frame);
+    goal->goal_command.radius);
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 // --------------------------------------------------------------------------------------------
@@ -236,14 +233,16 @@ void PidControllerNode::executeGoal(
   /* Configuring control modes (for calculations) */
   /* Input: ENU local frame trajectory (the input's config is the most important, as it determines how the plugin
      performs the calculations; in this case, for a trajectory) */
-  input_mode_[drone_id] = goal->goal_command.control_mode;
+  input_mode_.yaw_mode = as2_msgs::msg::ControlMode::YAW_ANGLE;              // or YAW_SPEED or NONE (not functional with YAW_SPEED)
+  input_mode_.control_mode = as2_msgs::msg::ControlMode::TRAJECTORY;
+  input_mode_.reference_frame = as2_msgs::msg::ControlMode::LOCAL_ENU_FRAME;
 
   /* Output: ENU local frame speed control (used only to indicate the frame of the command's output) */
   output_mode_.yaw_mode = as2_msgs::msg::ControlMode::YAW_ANGLE;              // or YAW_SPEED or NONE (not functional with YAW_SPEED)
   output_mode_.control_mode = as2_msgs::msg::ControlMode::SPEED;
   output_mode_.reference_frame = as2_msgs::msg::ControlMode::LOCAL_ENU_FRAME;
 
-  if(!controllers_[drone_id]->setMode(input_mode_[drone_id], output_mode_))
+  if(!controllers_[drone_id]->setMode(input_mode_, output_mode_))
   {
     RCLCPP_ERROR(this->get_logger(), "Error setting control modes for UAV %d.", drone_id);
     rclcpp::shutdown();
@@ -296,8 +295,8 @@ void PidControllerNode::poseCallback(int drone_id, const geometry_msgs::msg::Pos
         current_pose_[drone_id].pose.position.x <= desired_traj_[drone_id].setpoints[0].position.x + distance_threshold_ &&
         current_pose_[drone_id].pose.position.y >= desired_traj_[drone_id].setpoints[0].position.y - distance_threshold_ &&
         current_pose_[drone_id].pose.position.y <= desired_traj_[drone_id].setpoints[0].position.y + distance_threshold_ &&
-        current_pose_[drone_id].pose.position.z >= desired_traj_[drone_id].setpoints[0].position.z - distance_threshold_ &&
-        current_pose_[drone_id].pose.position.z <= desired_traj_[drone_id].setpoints[0].position.z + distance_threshold_)
+        current_pose_[drone_id].pose.position.z >= desired_traj_[drone_id].setpoints[0].position.z - height_threshold_ &&
+        current_pose_[drone_id].pose.position.z <= desired_traj_[drone_id].setpoints[0].position.z + height_threshold_)
     {
       /* If the current pose is close to the desired trajectory point, update it */
       if (desired_traj_[drone_id].setpoints.size() > 1)
@@ -306,9 +305,9 @@ void PidControllerNode::poseCallback(int drone_id, const geometry_msgs::msg::Pos
       /* Check if the trajectory is "empty" */
       if(desired_traj_[drone_id].setpoints.size() <= 1 && not_circular_[drone_id])
       {
-        RCLCPP_INFO(this->get_logger(), "Linear trajectory for UAV %d completed.", drone_id);
+        RCLCPP_INFO(this->get_logger(), "Trajectory for UAV %d completed.", drone_id);
 
-        /* Mark goal as successful but DON'T clean up */
+        /* Mark goal as successful but DON'T clean up in order to keep the position */
         result->success = true;
         active_goals_[drone_id]->succeed(result);
       }
@@ -325,8 +324,8 @@ void PidControllerNode::poseCallback(int drone_id, const geometry_msgs::msg::Pos
         current_pose_[drone_id].pose.position.x <= circular_traj_[drone_id].setpoints[0].position.x + circular_threshold_ &&
         current_pose_[drone_id].pose.position.y >= circular_traj_[drone_id].setpoints[0].position.y - circular_threshold_ &&
         current_pose_[drone_id].pose.position.y <= circular_traj_[drone_id].setpoints[0].position.y + circular_threshold_ &&
-        current_pose_[drone_id].pose.position.z >= circular_traj_[drone_id].setpoints[0].position.z - circular_threshold_ &&
-        current_pose_[drone_id].pose.position.z <= circular_traj_[drone_id].setpoints[0].position.z + circular_threshold_)
+        current_pose_[drone_id].pose.position.z >= circular_traj_[drone_id].setpoints[0].position.z - height_threshold_ &&
+        current_pose_[drone_id].pose.position.z <= circular_traj_[drone_id].setpoints[0].position.z + height_threshold_)
     {
       /* If the current pose is close to the desired circular trajectory point, update it */
       as2_msgs::msg::TrajectoryPoint aux = circular_traj_[drone_id].setpoints[0];
@@ -802,10 +801,6 @@ void PidControllerNode::timerCallback(int drone_id)
     command_twist.twist.angular.z = transformed_angular_velocity.z();
 
     command_twist.header.frame_id = "drone" + std::to_string(drone_id) + "/base_link";
-
-    RCLCPP_INFO(this->get_logger(), "UAV %d: Publishing command in frame %s: vx=%.2f, vy=%.2f, vz=%.2f", 
-    drone_id, command_twist.header.frame_id.c_str(),
-    command_twist.twist.linear.x, command_twist.twist.linear.y, command_twist.twist.linear.z);
   }
   catch (const tf2::TransformException &ex)
   {

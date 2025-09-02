@@ -1,6 +1,7 @@
 # Takeoff behavior action definition
 
 # Request
+uint8 drone_id                                          # drone ID
 float32 takeoff_height                                  # takeoff height (m)
 ---
 # Result
