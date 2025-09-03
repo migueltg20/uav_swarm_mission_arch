@@ -126,8 +126,10 @@ rclcpp_action::GoalResponse PidControllerNode::handleGoal(
   std::shared_ptr<const GoalPoint::Goal> goal)
 {
   RCLCPP_INFO(this->get_logger(), "Received new goal request");
-  RCLCPP_WARN(this->get_logger(), "Received goal command: \ndrone_id: %d \nposition: [%f, %f, %f] \ncircular = %d \nradius = %f",
+  RCLCPP_WARN(this->get_logger(), "Received goal command: \ndrone_id: %d \ntake off: %f \nland: %d\nposition: [%f, %f, %f] \ncircular = %d \nradius = %f",
     goal->goal_command.drone_id,
+    goal->goal_command.takeoff,
+    goal->goal_command.land,
     goal->goal_command.point.pose.position.x,
     goal->goal_command.point.pose.position.y,
     goal->goal_command.point.pose.position.z,

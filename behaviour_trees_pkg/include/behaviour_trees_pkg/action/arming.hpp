@@ -1,5 +1,5 @@
-#ifndef BEHAVIOUR_TREES_PKG__ACTION__ARMING_HPP_
-#define BEHAVIOUR_TREES_PKG__ACTION__ARMING_HPP_
+#ifndef AS2_BEHAVIOR_TREE__ACTION__ARMING_HPP_
+#define AS2_BEHAVIOR_TREE__ACTION__ARMING_HPP_
 
 #include <string>
 #include <memory>
@@ -8,15 +8,16 @@
 #include "as2_behavior_tree/bt_action_node.hpp"
 #include "behaviortree_cpp_v3/action_node.h"
 
+#include "as2_core/names/actions.hpp"
 #include "as2_msgs/action/set_arming_state.hpp"
 
-namespace behaviour_trees_pkg
+namespace as2_behavior_tree
 {
-class ArmAction
+class ArmingAction
   : public nav2_behavior_tree::BtActionNode<as2_msgs::action::SetArmingState>
 {
 public:
-  ArmAction(
+  ArmingAction(
     const std::string & xml_tag_name,
     const BT::NodeConfiguration & conf)
   : nav2_behavior_tree::BtActionNode<as2_msgs::action::SetArmingState>(
@@ -49,6 +50,6 @@ private:
   bool request_;
 };
 
-}  // namespace behaviour_trees_pkg
+}  // namespace as2_behavior_tree
 
-#endif  // BEHAVIOUR_TREES_PKG__ACTION__ARMING_HPP_
+#endif  // AS2_BEHAVIOR_TREE__ACTION__ARMING_HPP_

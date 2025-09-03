@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="3">
+  <BehaviorTree ID="Parallel mission 13">
+    <Sequence>
+      <Arming request="true"/>
+      <Offboarding request="true"/>
+      <TakingOff drone_id="1"
+                 takeoff_height="3"/>
+      <TakingOff drone_id="3"
+                 takeoff_height="5"/>
+      <Parallel failure_threshold="1"
+                success_threshold="2">
+        <FollowingTraj drone_id="1"
+                       trajectory="{linear_traj_cir}"
+                       radius="1"/>
+        <FollowingTraj drone_id="3"
+                       trajectory="{simple_traj_cir}"
+                       radius="3"/>
+      </Parallel>
+    </Sequence>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="Arming"
+            editable="true">
+      <input_port name="request"/>
+    </Action>
+    <Action ID="FollowingTraj"
+            editable="true">
+      <input_port name="drone_id"/>
+      <input_port name="trajectory"/>
+      <input_port name="radius"/>
+    </Action>
+    <Action ID="Offboarding"
+            editable="true">
+      <input_port name="request"/>
+    </Action>
+    <Action ID="TakingOff"
+            editable="true">
+      <input_port name="drone_id"/>
+      <input_port name="takeoff_height"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

@@ -44,6 +44,8 @@ bool FollowTrajServer::on_activate(std::shared_ptr<const FollowTrajBh::Goal> goa
   goal_trajectory_[goal_command_.drone_id] = goal_command_.trajectory;
   goal_command_.radius = goal->radius;
 
+  need_height_update_[goal->drone_id] = true;
+
   if (goal_command_.radius < 0.0) 
   {
     RCLCPP_ERROR(this->get_logger(), "[FollowTrajBh] Invalid radius for drone %d", goal_command_.drone_id);
@@ -92,6 +94,8 @@ bool FollowTrajServer::on_modify(std::shared_ptr<const FollowTrajBh::Goal> goal)
   goal_trajectory_[goal_command_.drone_id] = goal_command_.trajectory;
   goal_pose_[goal_command_.drone_id] = geometry_msgs::msg::PoseStamped();
   goal_command_.radius = goal->radius;
+  
+  need_height_update_[goal->drone_id] = true;
 
   if (goal_command_.radius < 0.0) 
   {
@@ -179,6 +183,21 @@ as2_behavior::ExecutionStatus FollowTrajServer::on_run(
   {
     RCLCPP_WARN(this->get_logger(), "[FollowTrajBh] Waiting for pose data for drone %d", drone_id);
     return as2_behavior::ExecutionStatus::RUNNING;
+  }
+
+  /* Update Z coordinates with current height if needed */
+  if (need_height_update_[drone_id]) 
+  {
+    for (auto& setpoint : goal_trajectory_[drone_id].setpoints) 
+    {
+      setpoint.position.z = current_pose_[drone_id].pose.position.z;
+    }
+    for (auto& setpoint : goal_command_.trajectory.setpoints) 
+    {
+      setpoint.position.z = current_pose_[drone_id].pose.position.z;
+    }
+    need_height_update_[drone_id] = false;
+    goal_publisher_->publish(goal_command_);
   }
 
 

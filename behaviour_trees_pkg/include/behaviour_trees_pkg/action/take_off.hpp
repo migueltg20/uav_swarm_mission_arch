@@ -1,5 +1,5 @@
-#ifndef BEHAVIOUR_TREES_PKG__ACTION__TAKE_OFF_HPP_
-#define BEHAVIOUR_TREES_PKG__ACTION__TAKE_OFF_HPP_
+#ifndef AS2_BEHAVIOR_TREE__ACTION__TAKE_OFF_HPP_
+#define AS2_BEHAVIOR_TREE__ACTION__TAKE_OFF_HPP_
 
 #include <string>
 #include <memory>
@@ -10,13 +10,13 @@
 
 #include "behaviour_trees_pkg/action/take_off_bh.hpp"
 
-namespace behaviour_trees_pkg
+namespace as2_behavior_tree
 {
-class TakeOffAction
+class TakingOffAction
   : public nav2_behavior_tree::BtActionNode<behaviour_trees_pkg::action::TakeOffBh>
 {
 public:
-  TakeOffAction(
+  TakingOffAction(
     const std::string & xml_tag_name,
     const BT::NodeConfiguration & conf)
   : nav2_behavior_tree::BtActionNode<behaviour_trees_pkg::action::TakeOffBh>(
@@ -38,13 +38,17 @@ public:
   }
 
   void on_wait_for_result(
-    std::shared_ptr<const behaviour_trees_pkg::action::TakeOffBh::Feedback> feedback) {}
+    std::shared_ptr<const behaviour_trees_pkg::action::TakeOffBh::Feedback> feedback) 
+  {
+    // setOutput("drone_id", feedback->drone_id);
+    // setOutput("takeoff_height", feedback->takeoff_height);
+  }
 
 private:
   int drone_id_;
   float takeoff_height_;
 };
 
-}  // namespace behaviour_trees_pkg
+}  // namespace as2_behavior_tree
 
-#endif  // BEHAVIOUR_TREES_PKG__ACTION__TAKE_OFF_HPP_
+#endif  // AS2_BEHAVIOR_TREE__ACTION__TAKE_OFF_HPP_

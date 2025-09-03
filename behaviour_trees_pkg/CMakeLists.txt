@@ -14,14 +14,14 @@ find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(as2_msgs REQUIRED)
 find_package(as2_core REQUIRED)
 find_package(as2_behavior REQUIRED)
-find_package(as2_behavior_tree REQUIRED)
-find_package(behaviortree_cpp_v3 REQUIRED)
-find_package(geometry_msgs REQUIRED)
+# find_package(as2_behavior_tree REQUIRED)
+# find_package(behaviortree_cpp_v3 REQUIRED)
+# find_package(nav2_behavior_tree REQUIRED)
 find_package(motion_controller_pkg REQUIRED)
-find_package(behaviour_trees_pkg REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(rosidl_default_runtime REQUIRED)
 # ------------------------------------------------------------------------------------
@@ -183,24 +183,25 @@ target_link_libraries(offboard_server
 
 
 
-# ------------------------------------------------------------------------------------
-# Action manager node
-add_executable(bt_manager
-  src/bt_manager.cpp
-)
+# # ------------------------------------------------------------------------------------
+# # Action manager node
+# add_executable(bt_manager
+#   src/bt_manager.cpp
+# )
 
-ament_target_dependencies(bt_manager
-  rclcpp
-  behaviortree_cpp_v3
-  as2_behavior_tree
-  rosidl_default_runtime
-)
+# ament_target_dependencies(bt_manager
+#   rclcpp
+#   behaviortree_cpp_v3
+#   nav2_behavior_tree
+#   as2_behavior_tree
+#   rosidl_default_runtime
+# )
 
-# Link the generated typesupport library
-target_link_libraries(bt_manager
-  ${cpp_typesupport_target}
-)
-# ------------------------------------------------------------------------------------
+# # Link the generated typesupport library
+# target_link_libraries(bt_manager
+#   ${cpp_typesupport_target}
+# )
+# # ------------------------------------------------------------------------------------
 
 
 
@@ -208,7 +209,11 @@ target_link_libraries(bt_manager
 # Include directories
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/include
-  ${as2_behavior_tree_INCLUDE_DIRS}
+)
+
+# Install include directory
+install(DIRECTORY include/
+  DESTINATION include
 )
 
 # Install targets
@@ -218,7 +223,7 @@ install(TARGETS
   follow_traj_server
   arming_server
   offboard_server
-  bt_manager
+  # bt_manager
   DESTINATION lib/${PROJECT_NAME}
 )
 

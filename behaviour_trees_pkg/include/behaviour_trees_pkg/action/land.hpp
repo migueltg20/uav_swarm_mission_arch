@@ -1,5 +1,5 @@
-#ifndef BEHAVIOUR_TREES_PKG__ACTION__LAND_HPP_
-#define BEHAVIOUR_TREES_PKG__ACTION__LAND_HPP_
+#ifndef AS2_BEHAVIOR_TREE__ACTION__LAND_HPP_
+#define AS2_BEHAVIOR_TREE__ACTION__LAND_HPP_
 
 #include <string>
 #include <memory>
@@ -10,13 +10,13 @@
 
 #include "behaviour_trees_pkg/action/land_bh.hpp"
 
-namespace behaviour_trees_pkg
+namespace as2_behavior_tree
 {
-class LandAction
+class LandingAction
   : public nav2_behavior_tree::BtActionNode<behaviour_trees_pkg::action::LandBh>
 {
 public:
-  LandAction(
+  LandingAction(
     const std::string & xml_tag_name,
     const BT::NodeConfiguration & conf)
   : nav2_behavior_tree::BtActionNode<behaviour_trees_pkg::action::LandBh>(
@@ -24,23 +24,27 @@ public:
 
   void on_tick()
   {
+    getInput("drone_id", drone_id_);
     getInput("land", land_);
+    goal_.drone_id = drone_id_;
     goal_.land = land_;
   }
 
   static BT::PortsList providedPorts()
   {
     return providedBasicPorts(
-      {BT::InputPort<bool>("land")});
+      {BT::InputPort<int>("drone_id"),
+       BT::InputPort<bool>("land")});
   }
 
   void on_wait_for_result(
     std::shared_ptr<const behaviour_trees_pkg::action::LandBh::Feedback> feedback) {}
 
 private:
+  int drone_id_;
   bool land_;
 };
 
-}  // namespace behaviour_trees_pkg
+}  // namespace as2_behavior_tree
 
-#endif  // BEHAVIOUR_TREES_PKG__ACTION__LAND_HPP_
+#endif  // AS2_BEHAVIOR_TREE__ACTION__LAND_HPP_

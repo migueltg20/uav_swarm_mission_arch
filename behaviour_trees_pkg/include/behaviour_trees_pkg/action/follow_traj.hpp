@@ -1,5 +1,5 @@
-#ifndef BEHAVIOUR_TREES_PKG__ACTION__FOLLOW_TRAJ_HPP_
-#define BEHAVIOUR_TREES_PKG__ACTION__FOLLOW_TRAJ_HPP_
+#ifndef AS2_BEHAVIOR_TREE__ACTION__FOLLOW_TRAJ_HPP_
+#define AS2_BEHAVIOR_TREE__ACTION__FOLLOW_TRAJ_HPP_
 
 #include <string>
 #include <memory>
@@ -11,13 +11,13 @@
 #include "behaviour_trees_pkg/action/follow_traj_bh.hpp"
 #include "as2_msgs/msg/trajectory_setpoints.hpp"
 
-namespace behaviour_trees_pkg
+namespace as2_behavior_tree
 {
-class FollowTrajAction
+class FollowingTrajAction
   : public nav2_behavior_tree::BtActionNode<behaviour_trees_pkg::action::FollowTrajBh>
 {
 public:
-  FollowTrajAction(
+  FollowingTrajAction(
     const std::string & xml_tag_name,
     const BT::NodeConfiguration & conf)
   : nav2_behavior_tree::BtActionNode<behaviour_trees_pkg::action::FollowTrajBh>(
@@ -38,7 +38,7 @@ public:
     return providedBasicPorts(
       {BT::InputPort<int>("drone_id"),
        BT::InputPort<as2_msgs::msg::TrajectorySetpoints>("trajectory"),
-       BT::InputPort<double>("radius")});
+       BT::InputPort<float>("radius")});
   }
 
   void on_wait_for_result(
@@ -47,9 +47,9 @@ public:
 private:
   int drone_id_;
   as2_msgs::msg::TrajectorySetpoints trajectory_;
-  double radius_;
+  float radius_;
 };
 
-}  // namespace behaviour_trees_pkg
+}  // namespace as2_behavior_tree
 
-#endif  // BEHAVIOUR_TREES_PKG__ACTION__FOLLOW_TRAJ_HPP_
+#endif  // AS2_BEHAVIOR_TREE__ACTION__FOLLOW_TRAJ_HPP_

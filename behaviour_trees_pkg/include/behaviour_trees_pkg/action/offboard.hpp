@@ -1,5 +1,5 @@
-#ifndef BEHAVIOUR_TREES_PKG__ACTION__OFFBOARD_HPP_
-#define BEHAVIOUR_TREES_PKG__ACTION__OFFBOARD_HPP_
+#ifndef AS2_BEHAVIOR_TREE__ACTION__OFFBOARD_HPP_
+#define AS2_BEHAVIOR_TREE__ACTION__OFFBOARD_HPP_
 
 #include <string>
 #include <memory>
@@ -8,19 +8,20 @@
 #include "as2_behavior_tree/bt_action_node.hpp"
 #include "behaviortree_cpp_v3/action_node.h"
 
+#include "as2_core/names/actions.hpp"
 #include "as2_msgs/action/set_offboard_mode.hpp"
 
-namespace behaviour_trees_pkg
+namespace as2_behavior_tree
 {
-class OffboardAction
+class OffboardingAction
   : public nav2_behavior_tree::BtActionNode<as2_msgs::action::SetOffboardMode>
 {
 public:
-  OffboardAction(
+  OffboardingAction(
     const std::string & xml_tag_name,
     const BT::NodeConfiguration & conf)
   : nav2_behavior_tree::BtActionNode<as2_msgs::action::SetOffboardMode>(
-      xml_tag_name, "offboard", conf) {}
+      xml_tag_name, "offboarding", conf) {}
 
   void on_tick()
   {
@@ -41,6 +42,6 @@ private:
   bool request_;
 };
 
-}  // namespace behaviour_trees_pkg
+}  // namespace as2_behavior_tree
 
-#endif  // BEHAVIOUR_TREES_PKG__ACTION__OFFBOARD_HPP_
+#endif  // AS2_BEHAVIOR_TREE__ACTION__OFFBOARD_HPP_
