@@ -48,20 +48,20 @@ def generate_launch_description():
             prefix='gnome-terminal --title="Land Server" -- '
         ),
 
-        Node(
-            package='as2_behavior_tree',
-            executable='as2_behavior_tree_node',
-            name='bt_manager',
-            output='screen',
-            prefix='gnome-terminal --title="Behavior Tree Manager" -- ',
-            parameters=[{
-                'tree': mission_file,
-                'use_groot': False,                 # Set to True if you want to use Groot
-                'groot_client_port': 1666,
-                'groot_server_port': 1667,
-                'server_timeout': 10000,
-                'bt_loop_duration': 10,
-                'wait_for_service_timeout': 5000
-            }]
-        )
+        # Node(
+        #     package='as2_behavior_tree',
+        #     executable='as2_behavior_tree_node',
+        #     name='bt_manager',
+        #     output='screen',
+        #     prefix='gnome-terminal --title="Behavior Tree Manager" -- ',
+        #     parameters=[{
+        #         'tree': mission_file,
+        #         'use_groot': False,                 # Set to True if you want to use Groot
+        #         'groot_client_port': 1666,
+        #         'groot_server_port': 1667,
+        #         'server_timeout': 10000,
+        #         'bt_loop_duration': 10,
+        #         'wait_for_service_timeout': 5000
+        #     }]
+        # )
     ])

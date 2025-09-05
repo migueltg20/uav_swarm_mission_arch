@@ -15,7 +15,7 @@ class OffboardClient(BehaviorHandler):
         self.__node = node
 
         try:
-            super().__init__(node, SetOffboardMode, 'offboard')
+            super().__init__(node, SetOffboardMode, 'offboarding')
         except self.BehaviorNotAvailable as err:
             self.__node.get_logger().warn(str(err))
 

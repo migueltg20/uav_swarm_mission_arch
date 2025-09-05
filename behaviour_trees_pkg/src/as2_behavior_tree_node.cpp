@@ -65,6 +65,7 @@
 // ----------------------------------------------------------------
 // This is not from the original code
 #include <cmath>
+#include <cstdlib>
 #include "as2_behavior_tree/action/take_off.hpp"
 #include "as2_behavior_tree/action/land.hpp"
 #include "as2_behavior_tree/action/follow_traj.hpp"
@@ -75,16 +76,14 @@
 
 int main(int argc, char * argv[])
 {
+  // ----------------------------------------------------------------
+  // This is not from the original code:
+  // Disable Fast RTPS shared memory transport
+  ::setenv("RMW_FASTRTPS_SHARED_MEMORY_ENABLED", "0", 1);
+  // ----------------------------------------------------------------
+
   rclcpp::init(argc, argv);
   auto node = std::make_shared<rclcpp::Node>("bt_manager");
-
-  // ----------------------------------------------------------------
-  // This is not from the original code
-  // rclcpp::executors::SingleThreadedExecutor exec;
-  // exec.add_node(node);
-  // std::thread spin_thread([&exec]() { exec.spin(); });
-  // spin_thread.detach();
-  // ----------------------------------------------------------------
 
   node->declare_parameter<std::string>("tree", "");
   node->declare_parameter<bool>("use_groot", false);

@@ -30,18 +30,18 @@ class LandClient(BehaviorHandler):
         return super().modify(goal_msg)
     
 
-# def main():
-#     rclpy.init()
+def main():
+    rclpy.init()
 
-#     node = Node('land_test')
-#     land_client = LandClient(node)
+    node = Node('land_test')
+    land_client = LandClient(node)
 
-#     goal = LandBh.Goal()
-#     goal.drone_id = 0
-#     goal.land = True
-#     success = land_client.start(goal, wait_result=True)
+    goal = LandBh.Goal()
+    goal.drone_id = 0
+    goal.land = True
+    success = land_client.start(goal, wait_result=True)
     
-#     rclpy.shutdown()
+    rclpy.shutdown()
 
-# if __name__ == '__main__':
-#     main()
+if __name__ == '__main__':
+    main()

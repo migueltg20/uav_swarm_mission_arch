@@ -2,8 +2,8 @@
 <root BTCPP_format="3">
   <BehaviorTree ID="Parellel mission 02">
     <Sequence>
-      <Arming request="true"/>
-      <Offboarding request="true"/>
+      <!-- <Arming request="true"/> -->
+      <!-- <Offboarding request="true"/> -->
       <TakingOff drone_id="0"
                  takeoff_height="5"/>
       <TakingOff drone_id="2"
@@ -26,10 +26,10 @@
 
   <!-- Description of Node Models (used by Groot) -->
   <TreeNodesModel>
-    <Action ID="Arming"
+    <!-- <Action ID="Arming"
             editable="true">
       <input_port name="request"/>
-    </Action>
+    </Action> -->
     <Action ID="FollowingTraj"
             editable="true">
       <input_port name="drone_id"/>
@@ -41,10 +41,10 @@
       <input_port name="drone_id"/>
       <input_port name="land"/>
     </Action>
-    <Action ID="Offboarding"
+    <!-- <Action ID="Offboarding"
             editable="true">
       <input_port name="request"/>
-    </Action>
+    </Action> -->
     <Action ID="TakingOff"
             editable="true">
       <input_port name="drone_id"/>

@@ -2,20 +2,19 @@
 
 using namespace std::chrono_literals;
 
-
-
 /*!*******************************************************************************************
  *  \file       motion_controller_client.cpp
  *  \brief      Controller client class implementation
  *  \authors    Miguel Tejado García
  ********************************************************************************************/
 
-
-
 // --------------------------------------------------------------------------------------------
+/**
+ * Constructor: Initializes the motion controller client node and sets up goal subscription
+ */
 MotionClientNode::MotionClientNode() : Node("motion_controller_client")
 {
-  /* Suscription to the goal command topic */
+  /* Subscription to the goal command topic */
   goal_subscriber_ = this->create_subscription<GoalCommand>(
     "/goal", rclcpp::QoS(10),
     std::bind(&MotionClientNode::sendGoal, this, std::placeholders::_1));
@@ -25,6 +24,9 @@ MotionClientNode::MotionClientNode() : Node("motion_controller_client")
 
 
 // --------------------------------------------------------------------------------------------
+/**
+ * Destructor: Clean shutdown of the motion client node
+ */
 MotionClientNode::~MotionClientNode()
 {
   RCLCPP_INFO(this->get_logger(), "Destroying motion client node...");
@@ -34,11 +36,15 @@ MotionClientNode::~MotionClientNode()
 
 
 // --------------------------------------------------------------------------------------------
+/**
+ * Callback executed when the action server responds to a goal request
+ * Stores the goal handle for future reference and cancellation
+ */
 void MotionClientNode::goalResponseCallback(
   int id,
   std::shared_ptr<rclcpp_action::ClientGoalHandle<GoalPoint>> goal_handle)
 {
-  std::lock_guard<std::mutex> lock(goal_mutexes_[id]);
+  std::lock_guard<std::mutex> lock(goal_mutexes_[id]); // Thread-safe access to goal data
 
   if (!goal_handle) 
   {
@@ -46,20 +52,24 @@ void MotionClientNode::goalResponseCallback(
     return;
   }
   RCLCPP_INFO(this->get_logger(), "Goal accepted by the server, waiting for result...");
-  active_goals_[id] = goal_handle;
+  active_goals_[id] = goal_handle; // Store handle for potential cancellation
 }
 // --------------------------------------------------------------------------------------------
 
 
 
 // --------------------------------------------------------------------------------------------
+/**
+ * Callback for receiving periodic feedback during goal execution
+ * Displays current drone position
+ */
 void MotionClientNode::feedbackCallback(
   int id,
   std::shared_ptr<rclcpp_action::ClientGoalHandle<GoalPoint>> /*goal_handle*/,
   const std::shared_ptr<const GoalPoint::Feedback> & feedback)
 {
   RCLCPP_INFO(this->get_logger(),
-    "[drone %d] Current pos: [%.2f, %.2f, %.2f] m",
+    "[drone %d] Current pos: [%.2f, %.2f, %.2f] m", // Display current position in meters
     id,
     feedback->current_pose.pose.position.x,
     feedback->current_pose.pose.position.y,
@@ -70,6 +80,9 @@ void MotionClientNode::feedbackCallback(
 
 
 // --------------------------------------------------------------------------------------------
+/**
+ * Manually cancel an active goal for a specific drone
+ */
 void MotionClientNode::cancelGoal(int id)
 {
   if (nav_clients_[id] == nullptr || active_goals_[id] == nullptr) 
@@ -89,11 +102,15 @@ void MotionClientNode::cancelGoal(int id)
 
 
 // --------------------------------------------------------------------------------------------
+/**
+ * Callback executed when a goal completes (success, abort, or cancel)
+ * Handles different result codes and cleans up goal references
+ */
 void MotionClientNode::resultCallback(
   int id,
   const rclcpp_action::ClientGoalHandle<GoalPoint>::WrappedResult & result)
 {
-  std::lock_guard<std::mutex> lock(goal_mutexes_[id]);
+  std::lock_guard<std::mutex> lock(goal_mutexes_[id]); // Thread-safe cleanup
 
   if (result.code == rclcpp_action::ResultCode::SUCCEEDED) 
   {
@@ -118,36 +135,39 @@ void MotionClientNode::resultCallback(
   {
     RCLCPP_WARN(this->get_logger(), "Unknown result code.");
   }
-  active_goals_[id] = nullptr; 
+  active_goals_[id] = nullptr; // Clear the goal reference
 }
 // --------------------------------------------------------------------------------------------
 
 
 
 // --------------------------------------------------------------------------------------------
+/**
+ * Main goal sending function - processes incoming goal commands
+ * Handles goal validation, client creation, cancellation, and new goal submission
+ */
 void MotionClientNode::sendGoal(const GoalCommand::SharedPtr msg)
 {
   /* Get the drone ID and action name */
-  if (msg->drone_id > 3) 
+  if (msg->drone_id > 3) // Validate drone ID range (0-3)
   {
     RCLCPP_ERROR(get_logger(), "Invalid drone ID: %d. It must be between 0 and 3 (inclusive).", msg->drone_id);
     return;
   }
   int id = msg->drone_id;
-  auto action_name = "/drone" + std::to_string(id) + "/PrimalBehaviour";
+  auto action_name = "/drone" + std::to_string(id) + "/PrimalBehaviour"; // Build action server name
 
-  std::lock_guard<std::mutex> lock(goal_mutexes_[id]);
+  std::lock_guard<std::mutex> lock(goal_mutexes_[id]); // Ensure thread safety
 
   /* Creating goal message */
   auto goal_msg = GoalPoint::Goal();
   goal_msg.goal_command = *msg;
 
-
   /* Lazily create (or look up) the client */
   if (nav_clients_[id] == nullptr) 
   {
     nav_clients_[id] = rclcpp_action::create_client<GoalPoint>(this, action_name);
-    if (!nav_clients_[id]->wait_for_action_server(5s)) 
+    if (!nav_clients_[id]->wait_for_action_server(5s)) // Wait up to 5 seconds for server
     {
       RCLCPP_ERROR(get_logger(),
         "Action server '%s' not available.", action_name.c_str());
@@ -155,7 +175,6 @@ void MotionClientNode::sendGoal(const GoalCommand::SharedPtr msg)
     }
   }
   auto &client = nav_clients_[id];
-
 
   /* Configure callbacks */
   rclcpp_action::Client<GoalPoint>::SendGoalOptions opts;
@@ -178,7 +197,7 @@ void MotionClientNode::sendGoal(const GoalCommand::SharedPtr msg)
     return;
   }
 
-  /* Otherwise, if there’s still an active goal, cancel it first */
+  /* Otherwise, if there's still an active goal, cancel it first */
   if (active_goals_[id] != nullptr) 
   {
     auto cancel_future = client->async_cancel_goal(active_goals_[id]);
@@ -198,12 +217,15 @@ void MotionClientNode::sendGoal(const GoalCommand::SharedPtr msg)
 
 
 // --------------------------------------------------------------------------------------------
+/**
+ * Main function: Initialize ROS2, create and spin the motion client node
+ */
 int main(int argc, char **argv)
 {  
-  rclcpp::init(argc, argv);
-  auto node = std::make_shared<MotionClientNode>();
-  rclcpp::spin(node);
-  rclcpp::shutdown();
+  rclcpp::init(argc, argv); // Initialize ROS2
+  auto node = std::make_shared<MotionClientNode>(); // Create motion client node
+  rclcpp::spin(node); // Keep node running and processing callbacks
+  rclcpp::shutdown(); // Clean shutdown
   return 0;
 }
 // --------------------------------------------------------------------------------------------
