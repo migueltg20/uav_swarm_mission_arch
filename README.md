@@ -94,7 +94,7 @@ This package contains the abstraction layer to perform missions without telling 
 
 In order to test the behavior of the behavior servers, forgive the redundancy, there are 5 Python scripts those use ```as2_python_api``` package and those act as simple action clients in order to easily test the servers and their impact in the motion nodes.
 
-At the moment, the header files those are the clients and the Behavior Tree manager have to be moved to ```as2_behavior_tree``` to make them work because of errors that have to be fixed (the launch files are already designed to "know" this). 
+At the moment, the header files those are the clients and the Behavior Tree manager have to be placed in ```as2_behavior_tree``` to make them work because of errors that have to be fixed (the launch files are already designed to "know" this). 
 ```
 ./launch_behaviors.bash
 ```
