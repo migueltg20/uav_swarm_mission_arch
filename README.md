@@ -17,7 +17,13 @@ git clone https://github.com/aerostack2/aerostack2/tree/main/as2_motion_controll
 colcon build --select-packages as2_motion_controller
 ```
 
-This architecture has been tested in a solar field Gazebo simulation, but feel free of modifying interfaces, the controller, etc., to adapt it to your case.
+If there was any problem when compiling Aerostack2 packages, try first:
+```
+colcon build --cmake-args -DCMAKE_BUILD_TYPE=Debug
+```
+If it does not work, open an Issue in its repository.
+
+The architecture has been tested in a solar field Gazebo simulation, but feel free of modifying interfaces, the controller, etc., to adapt it to your case.
 
 About how it works, it is a modular system divided mainly in: motion control, interfaces communication and behaviors based plan execution. This modularity let the user to test each of this part (almost) independently ("almost" because for testing higher abstraction level parts you need lower ones), using for that the '''.bash''' executables provided in '''executables'''.
 
@@ -25,9 +31,16 @@ About how it works, it is a modular system divided mainly in: motion control, in
 The simulation used is one created to directly use Aerostack2 interfaces. To make it work with the packages of this repository, it is advisable to name your ROS2 workspace as "aerostack2_ws".
 Check its repository for more information: https://github.com/CoreSenseEU/TB2_Panel_Inspection_Simulation
 
-UAVs' control mode can be set like this:
+Simulation can be launched, stopped and rebooted with these executables (change pathes inside these files if needed):
 ```
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+./simulation.bash
+./stop.bash
+./reboot_sim.bash
+```
+
+UAVs' control mode can be set with:
+```
+./configure_control_mode.bash
 ```
 
 FOTO SIMULACIÓN
@@ -53,3 +66,13 @@ The nodes can be launched with:
 For direct testing, you can modify the content of ```./goal_....bash``` files and execute them.
 
 ### behaviour_trees_pkg
+
+
+
+
+
+
+
+## Demo
+Here is a video of a demo, where 2 UAVs perfom a linear and a circular trajectories and a custom trajectory above 4 solanr panels (and the keeps the position).
+[Watch demo video on YouTube](https://www.youtube.com/watch?v=JUp0rhopJp8)
