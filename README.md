@@ -71,7 +71,7 @@ UAVs' control mode can be set with:
 ```
 cd ~/aerostack2_ws/src
 git clone https://github.com/migueltg20/uav_swarm_mission_arch
-colcon build --select-packages uav_swarm_mission_arch
+colcon build --packages-select motion_controller_pkg behaviour_trees_pkg
 ```
 
 ## Packages
