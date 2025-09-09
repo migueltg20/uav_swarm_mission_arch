@@ -1,9 +1,5 @@
 #!/bin/bash
 
-cd ~/arerostack2_ws/src/uav_swarm_mission_arch/executables
-
-./simulation.bash
-
 cd ~/aerostack2_ws
 
 source install/setup.bash
