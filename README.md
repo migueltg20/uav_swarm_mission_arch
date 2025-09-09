@@ -7,8 +7,14 @@ This repo is kind of an update of that architecture, using ROS2 and Aerostack2, 
 It can be installed completly with:
 ```
 cd ~/aerostack2_ws/src
-git clone [https://github.com/aerostack2/aerostack2](https://github.com/aerostack2/aerostack2)
-colcon build --select-packages uav_swarm_mission_arch
+git clone https://github.com/aerostack2/aerostack2
+colcon build 
+```
+or partially with, for example:
+```
+cd ~/aerostack2_ws/src
+git clone https://github.com/aerostack2/aerostack2/tree/main/as2_motion_controller   # or any other package
+colcon build --select-packages as2_motion_controller
 ```
 
 This architecture has been tested in a solar field Gazebo simulation, but feel free of modifying interfaces, the controller, etc., to adapt it to your case.
@@ -19,14 +25,19 @@ About how it works, it is a modular system divided mainly in: motion control, in
 The simulation used is one created to directly use Aerostack2 interfaces. To make it work with the packages of this repository, it is advisable to name your ROS2 workspace as "aerostack2_ws".
 Check its repository for more information: https://github.com/CoreSenseEU/TB2_Panel_Inspection_Simulation
 
-The 
+UAVs' control mode can be set like this:
+```
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+```
+
+FOTO SIMULACIÓN
 
 ## Installation
-'''
+```
 cd ~/aerostack2_ws/src
 git clone https://github.com/migueltg20/uav_swarm_mission_arch
 colcon build --select-packages uav_swarm_mission_arch
-'''
+```
 
 ## Packages
 As mentioned, this repo contains two ROS2 packages for UAV mission execution: one for simple motion control, and one for Behaviour Trees application (the latter package uses the motion controller one as a base).
@@ -36,5 +47,9 @@ This package contains 2 nodes those acts as server and client for a ROS2 action 
 Server node instances an action server for every UAV you have and waits for a goal request. When it receives one, it starts applying the logic to suit the goal to low-level controller interface, and after all, it publishes the twist commands for the UAV specified. Notice that as mentioned in the Overview, the controller configuration is perfectly interchangeable for another configuration (speed, position, etc.).
 
 The nodes can be launched with:
+```
+./launch_motion.bash
+```
+For direct testing, you can modify the content of ```./goal_....bash``` files and execute them.
 
 ### behaviour_trees_pkg
