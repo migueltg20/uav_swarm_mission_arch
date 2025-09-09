@@ -5,11 +5,11 @@ This repository contains two packages for controlling a UAV swarm, mainly for in
 
 This repo is kind of an update of that architecture, using ROS2 and Aerostack2, an aerial platform framework designed to ease the creation of systems and architectures like this.
 It can be installed completly with:
-'''
+```
 cd ~/aerostack2_ws/src
 git clone [https://github.com/aerostack2/aerostack2](https://github.com/aerostack2/aerostack2)
 colcon build --select-packages uav_swarm_mission_arch
-'''
+```
 
 This architecture has been tested in a solar field Gazebo simulation, but feel free of modifying interfaces, the controller, etc., to adapt it to your case.
 
