@@ -124,14 +124,13 @@ rclcpp_action::GoalResponse PidControllerNode::handleGoal(
 {
   RCLCPP_INFO(this->get_logger(), "Received new goal request");
   /* Log goal details for debugging */
-  RCLCPP_WARN(this->get_logger(), "Received goal command: \ndrone_id: %d \ntake off: %f \nland: %d\nposition: [%f, %f, %f] \ncircular = %d \nradius = %f",
+  RCLCPP_WARN(this->get_logger(), "Received goal command: \ndrone_id: %d \ntake off: %f \nland: %d\nposition: [%f, %f, %f] \nradius = %f",
     goal->goal_command.drone_id,
     goal->goal_command.takeoff,
     goal->goal_command.land,
     goal->goal_command.point.pose.position.x,
     goal->goal_command.point.pose.position.y,
     goal->goal_command.point.pose.position.z,
-    goal->goal_command.circular,
     goal->goal_command.radius);
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
@@ -408,10 +407,9 @@ void PidControllerNode::processGoal(const GoalCommand & msg)
   }
   else
   {
-    /* Handle different trajectory types based on circular flag */
-    switch (goal.circular)
+    /* Handle different trajectory types based on "radius flag" */
+    if (goal.radius == 0)   // Non circular trajectory only
     {
-    case 0:   // Linear trajectory only
       not_circular_[drone_id] = true;
 
       /* Generate linear trajectory from current position to goal point */
@@ -512,14 +510,13 @@ void PidControllerNode::processGoal(const GoalCommand & msg)
         cleanupGoal(drone_id);
         return;
       }
-
-      break;
-
-    case 1:  // Linear trajectory followed by circular trajectory
+    }
+    else  // Linear trajectory followed by circular trajectory
+    {
       not_circular_[drone_id] = false;
 
       /* Validate circular trajectory radius */
-      if (goal.radius <= 0.0) 
+      if (goal.radius < 0.0) 
       {
         RCLCPP_ERROR(this->get_logger(), "Error: Circular trajectory radius for UAV %d must be greater than zero.", drone_id);
 
@@ -690,8 +687,6 @@ void PidControllerNode::processGoal(const GoalCommand & msg)
           circular_traj_[drone_id].setpoints[i].yaw_angle     = theta + M_PI; // Face inward
         }
       }
-
-      break;
     }
   }
 }

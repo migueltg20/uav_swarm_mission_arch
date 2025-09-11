@@ -64,8 +64,6 @@ bool FollowTrajServer::on_activate(std::shared_ptr<const FollowTrajBh::Goal> goa
   }
   else if (goal_command_.radius > 0.0) 
   {
-    goal_command_.circular = true; // Enable circular trajectory mode
-
     /* Convert single setpoint to goal point for circular motion */
     if (goal_command_.trajectory.setpoints.size() == 1) 
     {
@@ -122,8 +120,6 @@ bool FollowTrajServer::on_modify(std::shared_ptr<const FollowTrajBh::Goal> goal)
   }
   else if (goal_command_.radius > 0.0) 
   {
-    goal_command_.circular = true;
-
     if (goal_command_.trajectory.setpoints.size() == 1) 
     {
       setupGoalFromTrajectory();
@@ -137,8 +133,6 @@ bool FollowTrajServer::on_modify(std::shared_ptr<const FollowTrajBh::Goal> goal)
   }
   else if (goal_command_.radius == 0.0 && !goal_command_.trajectory.setpoints.empty())
   {
-    goal_command_.circular = false; // Regular trajectory mode
-
     if (goal_command_.trajectory.setpoints.size() == 1) 
     {
       setupGoalFromTrajectory();

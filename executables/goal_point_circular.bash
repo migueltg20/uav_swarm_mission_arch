@@ -25,7 +25,6 @@ ros2 topic pub /goal motion_controller_pkg/msg/GoalCommand '{
     },
     setpoints: []
   },
-  circular: true,
   radius: 3.0,
   cancel: false
 }' --once
