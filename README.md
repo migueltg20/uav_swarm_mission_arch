@@ -40,7 +40,9 @@ if (in_mode.control_mode == as2_msgs::msg::ControlMode::POSITION &&
     !flags_.position_controller_parameters_read)
 ```
 
-3. See the mentioned in the explanation of ```behaviour_trees_pkg``` for the last changes.
+3. In ```as2_behavior_tree/include/as2_behavior_tree/bt_action_node.hpp```, in ```createActionClient()```, modify the service server waiting timeout if you get a segmetation fault (it tries to use the client even if it is not possible).
+
+4. See the mentioned in the explanation of ```behaviour_trees_pkg``` for the last changes.
 
 
 The architecture has been tested in a solar field Gazebo simulation, but feel free of modifying interfaces, the controller, etc., to adapt it to your case.

@@ -203,6 +203,12 @@ as2_behavior::ExecutionStatus FollowTrajServer::on_run(
   /* Update Z coordinates with current height if needed */
   if (need_height_update_[drone_id]) 
   {
+    auto &pose = current_pose_[drone_id].pose.position;
+
+    if (std::abs(pose.z) < 0.1) 
+    {
+      return as2_behavior::ExecutionStatus::RUNNING;
+    }
     /* Update all setpoints to current height */
     for (auto& setpoint : goal_trajectory_[drone_id].setpoints) 
     {
