@@ -85,7 +85,7 @@ int main(int argc, char * argv[])
   rclcpp::init(argc, argv);
   auto node = std::make_shared<rclcpp::Node>("bt_manager");
 
-  node->declare_parameter<std::string>("tree", "");
+  node->declare_parameter<std::string>("tree", "/home/miguel/aerostack2_ws/src/uav_swarm_mission_arch/behaviour_trees_pkg/config/parallel_mission_02.xml");
   node->declare_parameter<bool>("use_groot", false);
   node->declare_parameter<int>("groot_client_port", 1666);
   node->declare_parameter<int>("groot_server_port", 1667);
@@ -131,6 +131,7 @@ int main(int argc, char * argv[])
   as2_msgs::msg::TrajectorySetpoints simple_traj_cir;
   as2_msgs::msg::TrajectorySetpoints complex_traj;
   as2_msgs::msg::TrajectorySetpoints linear_traj_cir;
+  as2_msgs::msg::TrajectorySetpoints home;
 
   simple_traj_cir.header.frame_id = "earth";
   simple_traj_cir.setpoints.resize(4);
@@ -141,7 +142,7 @@ int main(int argc, char * argv[])
   {
     simple_traj_cir.setpoints[i].position.x = x;
     simple_traj_cir.setpoints[i].position.y = y;
-    simple_traj_cir.setpoints[i].position.z = 0.0;      // Configured in the server
+    simple_traj_cir.setpoints[i].position.z = 4.0;      // Configured in the server
     simple_traj_cir.setpoints[i].twist.x = 0.0;
     simple_traj_cir.setpoints[i].twist.y = 0.0;
     simple_traj_cir.setpoints[i].twist.z = 0.0;
@@ -210,6 +211,19 @@ int main(int argc, char * argv[])
   linear_traj_cir.setpoints[0].acceleration.y = 0.0;
   linear_traj_cir.setpoints[0].acceleration.z = 0.0;
   linear_traj_cir.setpoints[0].yaw_angle = 0.0;       // Configured in the motion controller
+
+  home.header.frame_id = "earth";
+  home.setpoints.resize(1);
+  home.setpoints[0].position.x = 0.0;     // Random solar panel
+  home.setpoints[0].position.y = 0.0;
+  home.setpoints[0].position.z = 0.0;      // Configured in the motion controller
+  home.setpoints[0].twist.x = 0.0;
+  home.setpoints[0].twist.y = 0.0;
+  home.setpoints[0].twist.z = 0.0;
+  home.setpoints[0].acceleration.x = 0.0;
+  home.setpoints[0].acceleration.y = 0.0;
+  home.setpoints[0].acceleration.z = 0.0;
+  home.setpoints[0].yaw_angle = 0.0;       // Configured in the motion controller
   // ----------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -233,6 +247,8 @@ int main(int argc, char * argv[])
     "complex_traj", complex_traj);
   config->blackboard->set<as2_msgs::msg::TrajectorySetpoints>(
     "linear_traj_cir", linear_traj_cir);
+  config->blackboard->set<as2_msgs::msg::TrajectorySetpoints>(
+    "home", home);
   // -------------------------------------------------------------------------------------
   
   auto tree = factory.createTreeFromFile(tree_description, config->blackboard);
