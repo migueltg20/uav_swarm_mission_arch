@@ -50,7 +50,6 @@ ros2 topic pub /goal motion_controller_pkg/msg/GoalCommand '{
       }
     ]
   },
-  circular: false,
-  radius: 3.0,
+  radius: 0.0,
   cancel: false
 }' --once

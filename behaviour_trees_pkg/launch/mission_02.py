@@ -46,7 +46,7 @@ def generate_launch_description():
             name='land',
             output='screen',
             prefix='gnome-terminal --title="Land Server" -- '
-        ),
+        )
 
         # Node(
         #     package='as2_behavior_tree',

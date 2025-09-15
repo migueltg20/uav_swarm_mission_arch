@@ -17,6 +17,9 @@
           <FollowingTraj drone_id="2"
                          trajectory="{complex_traj}"
                          radius="0"/>
+          <FollowingTraj drone_id="2"
+                         trajectory="{home}"
+                         radius="0"/>
           <Landing drone_id="2"
                    land="true"/>
         </Sequence>

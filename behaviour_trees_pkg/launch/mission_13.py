@@ -37,7 +37,7 @@ def generate_launch_description():
             name='follow_traj',
             output='screen',
             prefix='gnome-terminal --title="Follow Trajectory Server" -- '
-        )
+        ),
 
         Node(
             package='as2_behavior_tree',

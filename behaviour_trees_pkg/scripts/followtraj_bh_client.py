@@ -56,7 +56,7 @@ def main():
     
     # Setpoint 1
     point1 = TrajectoryPoint()
-    point1.position = Vector3(x=20.0, y=3.5, z=5.0)
+    point1.position = Vector3(x=20.0, y=3.5, z=0.0)
     point1.twist = Vector3(x=0.0, y=0.0, z=0.0)
     point1.acceleration = Vector3(x=0.0, y=0.0, z=0.0)
     point1.yaw_angle = 0.0
@@ -64,7 +64,7 @@ def main():
     
     # Setpoint 2
     point2 = TrajectoryPoint()
-    point2.position = Vector3(x=23.5, y=3.5, z=5.0)
+    point2.position = Vector3(x=23.5, y=3.5, z=0.0)
     point2.twist = Vector3(x=1.0, y=2.0, z=0.0)
     point2.acceleration = Vector3(x=0.0, y=0.0, z=0.0)
     point2.yaw_angle = 0.0
@@ -72,7 +72,7 @@ def main():
     
     # Setpoint 3
     point3 = TrajectoryPoint()
-    point3.position = Vector3(x=27.0, y=3.5, z=5.0)
+    point3.position = Vector3(x=27.0, y=3.5, z=0.0)
     point3.twist = Vector3(x=0.0, y=0.0, z=0.0)
     point3.acceleration = Vector3(x=0.0, y=0.0, z=0.0)
     point3.yaw_angle = 0.0
@@ -80,7 +80,7 @@ def main():
     
     # Setpoint 4
     point4 = TrajectoryPoint()
-    point4.position = Vector3(x=30.5, y=3.5, z=5.0)
+    point4.position = Vector3(x=30.5, y=3.5, z=0.0)
     point4.twist = Vector3(x=0.0, y=0.0, z=0.0)
     point4.acceleration = Vector3(x=0.0, y=0.0, z=0.0)
     point4.yaw_angle = 0.0
