@@ -61,7 +61,7 @@ private:
   void twistCallback(int drone_id, const geometry_msgs::msg::TwistStamped::SharedPtr msg);
   
   /* Utility methods for trajectory processing */
-  void setupGoalFromTrajectory();  // Convert trajectory setpoint to pose goal
+  void setupGoalFromTrajectory(int drone_id);  // Convert trajectory setpoint to pose goal
   bool isAtPosition(const geometry_msgs::msg::PoseStamped& current,
                     const as2_msgs::msg::TrajectoryPoint& target);  // Position threshold check
 
@@ -83,9 +83,11 @@ private:
   std::array<as2_msgs::msg::TrajectorySetpoints, 4> goal_trajectory_;  // Local copy for progress tracking
   std::array<geometry_msgs::msg::PoseStamped, 4> goal_pose_;           // Single point goals for conversion
   std::array<bool, 4>                         need_height_update_;     // Flags for Z-coordinate updates
+  std::array<bool, 4>                         need_first_pose_;        // Flags for initial pose reception
+  std::array<bool, 4>                         normal_trajectory_;     // Flags for normal vs circular trajectory
   std::array<std::mutex, 4>                   drone_mutexes_;          // Thread safety per drone
 
-  GoalCommand goal_command_;  // Current command being sent to controller
+  std::array<GoalCommand, 4> goal_commands_;  // Per-drone command tracking
 
   /* Position tolerance thresholds */
   double distance_threshold_{0.5};  // XY position tolerance (meters)

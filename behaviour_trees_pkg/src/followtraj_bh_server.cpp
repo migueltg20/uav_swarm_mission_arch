@@ -49,43 +49,53 @@ bool FollowTrajServer::on_activate(std::shared_ptr<const FollowTrajBh::Goal> goa
   }
 
   /* Set up goal command from received goal */
-  goal_command_.drone_id = goal->drone_id;
-  goal_command_.trajectory = goal->trajectory;
-  goal_trajectory_[goal_command_.drone_id] = goal_command_.trajectory; // Store local copy for tracking
-  goal_command_.radius = goal->radius;
+  auto& goal_command = goal_commands_[goal->drone_id];
+  goal_command.drone_id = goal->drone_id;
+  goal_command.trajectory = goal->trajectory;
+  goal_trajectory_[goal->drone_id] = goal->trajectory; // Store local copy for tracking
+  goal_command.radius = goal->radius;
 
   need_height_update_[goal->drone_id] = true; // Flag to update Z coordinates with current height
 
   /* Validate radius parameter */
-  if (goal_command_.radius < 0.0) 
+  if (goal_command.radius < 0.0) 
   {
-    RCLCPP_ERROR(this->get_logger(), "[FollowTrajBh] Invalid radius for drone %d", goal_command_.drone_id);
+    RCLCPP_ERROR(this->get_logger(), "[FollowTrajBh] Invalid radius for drone %d", goal_command.drone_id);
     return false;  
   }
-  else if (goal_command_.radius > 0.0) 
+  else if (goal_command.radius > 0.0) 
   {
+    normal_trajectory_[goal->drone_id] = true;
+
     /* Convert single setpoint to goal point for circular motion */
-    if (goal_command_.trajectory.setpoints.size() == 1) 
+    if (goal_command.trajectory.setpoints.size() == 1) 
     {
-      setupGoalFromTrajectory();
+      setupGoalFromTrajectory(goal->drone_id);
+    }
+    else if (goal_command.trajectory.setpoints.size() == 0)
+    {
+      normal_trajectory_[goal->drone_id] = false;
+      need_first_pose_[goal->drone_id] = true; 
     }
   }
-  else if (goal_command_.radius == 0.0 && !goal_command_.trajectory.setpoints.empty())
+  else if (goal_command.radius == 0.0 && !goal_command.trajectory.setpoints.empty())
   {
+    normal_trajectory_[goal->drone_id] = true;
+
     /* Handle regular trajectory following */
-    if (goal_command_.trajectory.setpoints.size() == 1) 
+    if (goal_command.trajectory.setpoints.size() == 1) 
     {
-      setupGoalFromTrajectory();
+      setupGoalFromTrajectory(goal->drone_id);
     }
   }
   else
   {
-    RCLCPP_ERROR(this->get_logger(), "[FollowTrajBh] Invalid trajectory for drone %d", goal_command_.drone_id);
+    RCLCPP_ERROR(this->get_logger(), "[FollowTrajBh] Invalid trajectory for drone %d", goal_command.drone_id);
     return false;  
   }
 
   /* Publish goal command to trajectory controller */
-  goal_publisher_->publish(goal_command_);
+  goal_publisher_->publish(goal_command);
   return true;
 }
 
@@ -104,48 +114,55 @@ bool FollowTrajServer::on_modify(std::shared_ptr<const FollowTrajBh::Goal> goal)
   }
 
   /* Update goal command with new trajectory */
-  goal_command_.drone_id = goal->drone_id;
-  goal_command_.trajectory = goal->trajectory;
-  goal_trajectory_[goal_command_.drone_id] = goal_command_.trajectory;
-  goal_pose_[goal_command_.drone_id] = geometry_msgs::msg::PoseStamped(); // Reset goal pose
-  goal_command_.radius = goal->radius;
+  auto& goal_command = goal_commands_[goal->drone_id];
+  goal_command.drone_id = goal->drone_id;
+  goal_command.trajectory = goal->trajectory;
+  goal_trajectory_[goal->drone_id] = goal->trajectory;
+  goal_pose_[goal->drone_id] = geometry_msgs::msg::PoseStamped(); // Reset goal pose
+  goal_command.radius = goal->radius;
   
   need_height_update_[goal->drone_id] = true; // Flag for height update
 
   /* Process radius parameter and set trajectory mode */
-  if (goal_command_.radius < 0.0) 
+  if (goal_command.radius < 0.0) 
   {
-    RCLCPP_ERROR(this->get_logger(), "[FollowTrajBh] Invalid radius for drone %d", goal_command_.drone_id);
+    RCLCPP_ERROR(this->get_logger(), "[FollowTrajBh] Invalid radius for drone %d", goal_command.drone_id);
     return false;  
   }
-  else if (goal_command_.radius > 0.0) 
+  else if (goal_command.radius > 0.0) 
   {
-    if (goal_command_.trajectory.setpoints.size() == 1) 
+    normal_trajectory_[goal->drone_id] = true;
+
+    if (goal_command.trajectory.setpoints.size() == 1) 
     {
-      setupGoalFromTrajectory();
+      setupGoalFromTrajectory(goal->drone_id);
     }
-    else if (goal_command_.trajectory.setpoints.size() == 0)
+    else if (goal_command.trajectory.setpoints.size() == 0)
     {
       /* Clear trajectory for empty circular motion */
-      goal_command_.trajectory.setpoints.clear();
-      goal_command_.point = geometry_msgs::msg::PoseStamped();
+      goal_command.trajectory.setpoints.clear();
+      goal_command.point = geometry_msgs::msg::PoseStamped();
+      need_first_pose_[goal->drone_id] = true; 
+      normal_trajectory_[goal->drone_id] = false;
     }
   }
-  else if (goal_command_.radius == 0.0 && !goal_command_.trajectory.setpoints.empty())
+  else if (goal_command.radius == 0.0 && !goal_command.trajectory.setpoints.empty())
   {
-    if (goal_command_.trajectory.setpoints.size() == 1) 
+    normal_trajectory_[goal->drone_id] = true;
+
+    if (goal_command.trajectory.setpoints.size() == 1) 
     {
-      setupGoalFromTrajectory();
+      setupGoalFromTrajectory(goal->drone_id);
     }
   }
   else
   {
-    RCLCPP_ERROR(this->get_logger(), "[FollowTrajBh] Invalid trajectory for drone %d", goal_command_.drone_id);
+    RCLCPP_ERROR(this->get_logger(), "[FollowTrajBh] Invalid trajectory for drone %d", goal_command.drone_id);
     return false;  
   }
 
   /* Publish updated goal command */
-  goal_publisher_->publish(goal_command_);
+  goal_publisher_->publish(goal_command);
   return true;
 }
 
@@ -214,20 +231,33 @@ as2_behavior::ExecutionStatus FollowTrajServer::on_run(
     {
       setpoint.position.z = current_pose_[drone_id].pose.position.z;
     }
-    for (auto& setpoint : goal_command_.trajectory.setpoints) 
+    for (auto& setpoint : goal_commands_[drone_id].trajectory.setpoints) 
     {
       setpoint.position.z = current_pose_[drone_id].pose.position.z;
     }
     need_height_update_[drone_id] = false;
-    goal_publisher_->publish(goal_command_); // Republish with updated heights
+    goal_publisher_->publish(goal_commands_[drone_id]); // Republish with updated heights
   }
 
 
-  /* Handle circular trajectory (no setpoints to track) */
-  if (goal_trajectory_[drone_id].setpoints.empty() && goal_pose_[drone_id].header.frame_id.empty()) 
+  /* Handle circular trajectory around original pose */
+  if (!normal_trajectory_[drone_id] && goal_commands_[drone_id].radius > 0.0) 
   {
     /* For circular trajectories, check if drone reached the center point */
-    auto& target = goal_trajectory_[drone_id].setpoints[0];
+    as2_msgs::msg::TrajectoryPoint target;
+    if (goal_commands_[drone_id].point.header.frame_id.empty()) 
+    {
+      target.position.x = goal_commands_[drone_id].trajectory.setpoints[0].position.x + goal_commands_[drone_id].radius;
+      target.position.y = goal_commands_[drone_id].trajectory.setpoints[0].position.y + goal_commands_[drone_id].radius;
+      target.position.z = goal_commands_[drone_id].trajectory.setpoints[0].position.z;
+    }
+    else
+    {
+      target.position.x = goal_commands_[drone_id].point.pose.position.x + goal_commands_[drone_id].radius;
+      target.position.y = goal_commands_[drone_id].point.pose.position.y + goal_commands_[drone_id].radius;
+      target.position.z = goal_commands_[drone_id].point.pose.position.z;
+    }
+
     if (isAtPosition(current_pose_[drone_id], target)) 
     {
       RCLCPP_INFO(this->get_logger(), "[FollowTrajBh] Circular trajectory for UAV %d completed.", drone_id);
@@ -242,21 +272,27 @@ as2_behavior::ExecutionStatus FollowTrajServer::on_run(
   }
 
 
-  /* Handle multi-point trajectory */
+  /* Handle "normal" trajectory */
   if (goal_trajectory_[drone_id].setpoints.size() >= 1) 
   {
     auto& target = goal_trajectory_[drone_id].setpoints[0];
     if (isAtPosition(current_pose_[drone_id], target)) 
     {
-      /* Remove completed waypoint */
-      goal_trajectory_[drone_id].setpoints.erase(goal_trajectory_[drone_id].setpoints.begin());
-      
+      if (goal_trajectory_[drone_id].setpoints.size() > 1)
+      {
+        /* Remove completed waypoint */
+        goal_trajectory_[drone_id].setpoints.erase(goal_trajectory_[drone_id].setpoints.begin());
+      }
       /* Check if trajectory is complete */
-      if (goal_trajectory_[drone_id].setpoints.empty()) 
+      else if (goal_trajectory_[drone_id].setpoints.size() == 1 && goal_commands_[drone_id].radius == 0.0)
       {
         RCLCPP_INFO(this->get_logger(), "[FollowTrajBh] Trajectory for UAV %d completed.", drone_id);
         result->follow_path_success = true;
         return as2_behavior::ExecutionStatus::SUCCESS;
+      }
+      else if (goal_trajectory_[drone_id].setpoints.size() == 1 && goal_commands_[drone_id].radius > 0.0)
+      {
+        normal_trajectory_[drone_id] = false;
       }
       else
       {
@@ -272,17 +308,6 @@ as2_behavior::ExecutionStatus FollowTrajServer::on_run(
           current_pose_[drone_id].pose.position.y - target.position.y,
           current_pose_[drone_id].pose.position.z - target.position.z);
       RCLCPP_DEBUG(this->get_logger(), "[FollowTrajBh] UAV %d distance to waypoint: %.2f", drone_id, distance);
-    }
-  }
-  /* Handle single point trajectory */
-  else if (goal_trajectory_[drone_id].setpoints.size() == 1) 
-  {
-    auto& target = goal_trajectory_[drone_id].setpoints[0];
-    if (isAtPosition(current_pose_[drone_id], target)) 
-    {
-      RCLCPP_INFO(this->get_logger(), "[FollowTrajBh] Trajectory for UAV %d completed.", drone_id);
-      result->follow_path_success = true;
-      return as2_behavior::ExecutionStatus::SUCCESS;
     }
   }
   else
@@ -333,6 +358,13 @@ void FollowTrajServer::poseCallback(int drone_id, const geometry_msgs::msg::Pose
   if (drone_id >= 0 && drone_id < 4) 
   {
     current_pose_[drone_id] = *msg;
+    
+    if (need_first_pose_[drone_id])
+    {
+      /* Initialize goal position to current pose if no trajectory is set */
+      goal_commands_[drone_id].point = *msg;
+      need_first_pose_[drone_id] = false;
+    }
   }
 }
 
@@ -351,29 +383,30 @@ void FollowTrajServer::twistCallback(int drone_id, const geometry_msgs::msg::Twi
 
 
 /* Convert single trajectory setpoint to goal pose command */
-void FollowTrajServer::setupGoalFromTrajectory() 
+void FollowTrajServer::setupGoalFromTrajectory(int drone_id) 
 {
-  if (goal_command_.trajectory.setpoints.size() == 1) 
+  auto& goal_command = goal_commands_[drone_id];
+  if (goal_command.trajectory.setpoints.size() == 1) 
   {
     /* Set up pose header */
-    goal_command_.point.header = goal_command_.trajectory.header;
-    auto& setpoint = goal_command_.trajectory.setpoints.front();
+    goal_command.point.header = goal_command.trajectory.header;
+    auto& setpoint = goal_command.trajectory.setpoints.front();
     
     /* Copy position coordinates */
-    goal_command_.point.pose.position.x = setpoint.position.x;
-    goal_command_.point.pose.position.y = setpoint.position.y;
-    goal_command_.point.pose.position.z = setpoint.position.z;
+    goal_command.point.pose.position.x = setpoint.position.x;
+    goal_command.point.pose.position.y = setpoint.position.y;
+    goal_command.point.pose.position.z = setpoint.position.z;
 
     /* Convert yaw angle to quaternion orientation */
     double yaw = setpoint.yaw_angle;
-    goal_command_.point.pose.orientation.x = 0.0;
-    goal_command_.point.pose.orientation.y = 0.0;
-    goal_command_.point.pose.orientation.z = std::sin(yaw / 2.0);
-    goal_command_.point.pose.orientation.w = std::cos(yaw / 2.0);
+    goal_command.point.pose.orientation.x = 0.0;
+    goal_command.point.pose.orientation.y = 0.0;
+    goal_command.point.pose.orientation.z = std::sin(yaw / 2.0);
+    goal_command.point.pose.orientation.w = std::cos(yaw / 2.0);
     
     /* Clear trajectory setpoints and store goal pose */
-    goal_command_.trajectory.setpoints.clear();
-    goal_pose_[goal_command_.drone_id] = goal_command_.point;
+    goal_command.trajectory.setpoints.clear();
+    goal_pose_[drone_id] = goal_command.point;
   }
 }
 
